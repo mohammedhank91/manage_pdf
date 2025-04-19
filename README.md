@@ -14,6 +14,13 @@ A Python application to convert image files (JPG, PNG) to PDF with optional comp
 - Print PDFs
 - Compress PDFs to reduce file size
 
+## Version Information
+
+Two versions of the application are available:
+
+- **manage_pdf.py** - Limited version with only image-to-PDF conversion functionality
+- **manage_pdf_qt.py** - Full version with all features (compression, merging, splitting, etc.)
+
 ## Requirements
 
 - Python 3.6+
@@ -32,14 +39,12 @@ A Python application to convert image files (JPG, PNG) to PDF with optional comp
 
 ## Usage
 
-Two versions of the application are available:
-
-### Tkinter Version
+### Limited Version (Image-to-PDF only)
 ```
 python manage_pdf.py
 ```
 
-### PyQt6 Version (Recommended)
+### Full Version (Recommended)
 ```
 python manage_pdf_qt.py
 ```
@@ -50,11 +55,12 @@ python manage_pdf_qt.py
 2. Arrange and rotate images as needed
 3. Set margin and orientation options
 4. Click "Convert to PDF" to create your PDF file
-5. Use "Compress PDF" to reduce the file size (PyQt6 version only)
+5. Use "Compress PDF" to reduce the file size (Full version only)
+6. Use Merge and Split features for additional PDF management (Full version only)
 
 ## PDF Compression
 
-The compression feature (PyQt6 version only) reduces PDF file size by:
+The compression feature (Full version only) reduces PDF file size by:
 - Lowering image resolution to 150 DPI
 - Using JPEG compression for images
 - Slightly reducing image quality (90%)
