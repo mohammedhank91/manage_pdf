@@ -1579,7 +1579,7 @@ class ImageToPdfConverter(QMainWindow):
         
         # Right panel header
         options_header = QLabel("Merge Options")
-        options_header.setStyleSheet("font-weight: bold; font-size: 11pt; color: #1e88e5; margin-bottom: 5px;")
+        options_header.setStyleSheet("font-weight: bold; font-size: 11pt; color: #1e88e5; padding:0px; margin-bottom: 5px;")
         options_layout.addWidget(options_header)
         
         # Options group with better styling
