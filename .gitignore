@@ -1,0 +1,8 @@
+/build
+/dist
+/error.log
+/managepdf.ps1
+/manage_pdf.py
+/PDFManager.spec
+/pdf_manager.spec
+/venv32
