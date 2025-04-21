@@ -9,3 +9,5 @@ imagick_portable/
 imagick_portable_64/
 /installer_64/
 /installer_32/
+convert.py
+bfg-1.15.0.jar
