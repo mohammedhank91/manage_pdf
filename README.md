@@ -1,110 +1,106 @@
-# Image to PDF Converter
+# PDF Manager
 
-A Python application to convert image files (JPG, PNG) to PDF with optional compression.
+A versatile PDF management tool built with Python and PyQt.
 
 ## Features
 
-- Convert multiple images to a single PDF
-- Convert each image to a separate PDF
-- Rotate images
-- Add margins
-- Choose orientation (portrait/landscape)
-- Rearrange image order
-- Preview PDFs
-- Print PDFs
-- Compress PDFs to reduce file size
+- Convert images to PDF
+- Merge multiple PDFs
+- Split PDFs into separate files
+- Compress PDFs
+- Extract pages from PDFs
+- Rearrange and rotate PDF pages
 
-## Version Information
+## Project Structure
 
-Two versions of the application are available:
+```
+manage_pdf/
+├── src/                        # Source code
+│   ├── resources/              # Icons and resources
+│   ├── manage_pdf_qt.py        # Main application (PyQt6 version)
+│   ├── manage_pdf_qt5.py       # PyQt5 version for compatibility
+│   └── manage_pdf_old.py       # Original script version
+├── build_tools/                # Build scripts
+│   ├── setup.py                # cx_Freeze build configuration
+│   ├── requirements.txt        # Python dependencies
+│   ├── PDFManager_Setup.iss    # Inno Setup script for installer
+│   ├── PDFManager_Dual_Setup.iss # Dual version installer script
+│   └── managepdf.ps1           # PowerShell automation script
+├── temp/                       # Temporary files
+└── README.md                   # This file
+```
 
-- **manage_pdf.py** - Limited version with only image-to-PDF conversion functionality
-- **manage_pdf_qt.py** - Full version with all features (compression, merging, splitting, etc.)
+## Versions
+
+The project contains three different implementations:
+
+1. **manage_pdf_qt.py** - Modern PyQt6-based GUI application with PyQt5 fallback
+2. **manage_pdf_qt5.py** - PyQt5-only version for older systems like Windows 7
+3. **manage_pdf_old.py** - Original script version with basic functionality
 
 ## Requirements
 
-- Python 3.6+
-- Pillow (PIL Fork)
-- PyQt6 (for GUI)
-- ImageMagick (must be installed separately)
+- Python 3.6 or higher
+- PyQt6 (preferred) or PyQt5
+- Pillow (PIL)
+- cx_Freeze (for building executables)
+- ImageMagick (for some advanced image operations)
 
-## Installation
+## Running the Application
 
-1. Install Python 3.6 or higher if not already installed
-2. Install ImageMagick from [https://imagemagick.org/script/download.php](https://imagemagick.org/script/download.php)
-3. Install required Python packages:
-   ```
-   pip install -r requirements.txt
-   ```
+To run the application directly:
 
-## Usage
+```bash
+# Using PyQt6 (recommended for Windows 10/11)
+python src/manage_pdf_qt.py
 
-### Limited Version (Image-to-PDF only)
-```
-python manage_pdf.py
-```
+# Using PyQt5 (for Windows 7 or if PyQt6 is not available)
+python src/manage_pdf_qt5.py
 
-### Full Version (Recommended)
-```
-python manage_pdf_qt.py
+# Original script version
+python src/manage_pdf_old.py
 ```
 
-### Basic Steps
+## Building Executables
 
-1. Click "Select Images" to choose JPG or PNG files
-2. Arrange and rotate images as needed
-3. Set margin and orientation options
-4. Click "Convert to PDF" to create your PDF file
-5. Use "Compress PDF" to reduce the file size (Full version only)
-6. Use Merge and Split features for additional PDF management (Full version only)
+### Python Executable
+Use the setup.py script in the build_tools directory to create standalone executables:
 
-## PDF Compression
+```bash
+# Build PyQt6 version (64-bit, for Windows 10/11)
+python build_tools/setup.py --pyqt6
 
-The compression feature (Full version only) reduces PDF file size by:
-- Lowering image resolution to 150 DPI
-- Using JPEG compression for images
-- Slightly reducing image quality (90%)
+# Build PyQt5 version (32-bit, for Windows 7)
+python build_tools/setup.py --pyqt5 --arch=32
 
-## Notes
+# Build all versions
+python build_tools/setup.py --all
+```
 
-- For full functionality, ensure ImageMagick is properly installed and accessible in your system PATH 
+The executables will be created in the build directory.
 
-# PDF Manager
+### Windows Installer
+For creating Windows installers, use the Inno Setup scripts:
 
-A powerful desktop application to manage PDF files. Features include converting images to PDF, compressing PDFs, merging multiple PDFs, and splitting PDFs.
+1. Install [Inno Setup](https://jrsoftware.org/isinfo.php)
+2. Open the appropriate script:
+   - `PDFManager_Setup.iss` - For single version installer
+   - `PDFManager_Dual_Setup.iss` - For dual version installer (PyQt5 & PyQt6)
+3. Compile the script to create the installer
 
-## Creating a 32-bit Compatible Executable
+### PowerShell Automation
+The project includes a PowerShell script (`managepdf.ps1`) for automating certain tasks. Run it as needed for custom automation workflows.
 
-To create an executable file that works on both 32-bit and 64-bit Windows systems, follow these steps:
+## ImageMagick Integration
 
-### Prerequisites
-- Install a 32-bit version of Python (3.6+ recommended) from the [official Python website](https://www.python.org/downloads/windows/)
-- Install all required dependencies:
-  ```
-  pip install PyQt6 Pillow pyinstaller
-  ```
-- Install 32-bit ImageMagick from [https://imagemagick.org/script/download.php](https://imagemagick.org/script/download.php)
-  - During installation, ensure "Add to system PATH" is checked
-  - Optional: Set the IMAGEMAGICK_DIR environment variable to the installation directory
+For full functionality, install ImageMagick or place the portable version in:
+- `imagick_portable_64/` (for 64-bit)
+- `imagick_portable/` (for 32-bit)
 
-### Build Instructions
+## License
 
-1. Make sure you have all prerequisites installed and working
-2. Run the build script:
-   ```
-   python build.py
-   ```
-3. The script will verify if you're using a 32-bit Python environment
-4. The executable will be created in the `dist` folder as `PDFManager.exe`
+This project is provided as-is for personal use.
 
-### Notes on 32-bit Compatibility
-- The executable must be built using a 32-bit Python environment
-- Users running the executable will still need ImageMagick installed on their computer
-- When distributing the application, ensure you provide a link to the 32-bit version of ImageMagick
-- The executable can be run on both 32-bit and 64-bit Windows systems
-- If you encounter errors during the build process, check that all dependencies are correctly installed in your 32-bit Python environment
+## Credits
 
-### Troubleshooting
-- If the script reports you're not using 32-bit Python, install a 32-bit version and try again
-- Ensure your PYTHONPATH is pointing to the 32-bit installation when running the build script
-- If ImageMagick-related features don't work in the executable, verify that ImageMagick is properly installed on the target system 
+- Developed by mohammedhank91 

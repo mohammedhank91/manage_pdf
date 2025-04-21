@@ -2,7 +2,10 @@
 /dist
 /error.log
 /managepdf.ps1
-/manage_pdf.py
 /PDFManager.spec
 /pdf_manager.spec
 /venv32
+imagick_portable/
+imagick_portable_64/
+/installer_64/
+/installer_32/

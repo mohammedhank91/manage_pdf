@@ -1,22 +1,49 @@
-import os
 import sys
+import os
 import subprocess
 import math
 import logging
 from datetime import datetime
-from PyQt6.QtWidgets import (
-    QApplication, QMainWindow, QLabel, QPushButton, QCheckBox, 
-    QSpinBox, QComboBox, QFileDialog, QMessageBox, QProgressBar, 
-    QListWidget, QFrame, QVBoxLayout, QHBoxLayout, QWidget, 
-    QTabWidget, QScrollArea, QListWidgetItem, QGridLayout, QGroupBox, QLineEdit, QRadioButton
-)
-from PyQt6.QtGui import (
-    QPixmap, QImage, QIcon
-)
-from PyQt6.QtCore import (
-    Qt, QSize
-)
+try:
+    from PyQt6.QtWidgets import (
+        QApplication, QMainWindow, QLabel, QPushButton, QCheckBox, 
+        QSpinBox, QComboBox, QFileDialog, QMessageBox, QProgressBar, 
+        QListWidget, QFrame, QVBoxLayout, QHBoxLayout, QWidget, 
+        QTabWidget, QScrollArea, QListWidgetItem, QGridLayout, QGroupBox, QLineEdit, QRadioButton
+    )
+    from PyQt6.QtGui import (
+        QPixmap, QImage, QIcon
+    )
+    from PyQt6.QtCore import (
+        Qt, QSize
+    )
+except ImportError:
+    # Fallback to PyQt5 if PyQt6 is not available
+    from PyQt5.QtWidgets import (
+        QApplication, QMainWindow, QLabel, QPushButton, QCheckBox, 
+        QSpinBox, QComboBox, QFileDialog, QMessageBox, QProgressBar, 
+        QListWidget, QFrame, QVBoxLayout, QHBoxLayout, QWidget, 
+        QTabWidget, QScrollArea, QListWidgetItem, QGridLayout, QGroupBox, QLineEdit, QRadioButton
+    )
+    from PyQt5.QtGui import (
+        QPixmap, QImage, QIcon
+    )
+    from PyQt5.QtCore import (
+        Qt, QSize
+    )
 from PIL import Image
+
+# Get the application base path in a way that works with cx_Freeze and normal Python
+def get_base_path():
+    """Get the base path for resources that works with cx_Freeze and normal Python"""
+    if getattr(sys, 'frozen', False):
+        # Running as compiled executable (cx_Freeze)
+        return os.path.dirname(sys.executable)
+    else:
+        # Running from script
+        return os.path.dirname(os.path.abspath(__file__))
+
+
 
 class ImageToPdfConverter(QMainWindow):
     def __init__(self):
@@ -37,10 +64,15 @@ class ImageToPdfConverter(QMainWindow):
             # Running as script
             self.base_path = os.path.abspath(os.path.dirname(__file__))
         
+        # Configure ImageMagick path - first check for portable installation
+        self.imagick_path = self.find_imagick()
+        
         # Set application icon - try multiple potential locations
         icon_found = False
         icon_paths = [
+            os.path.join(self.base_path, 'resources', 'manage_pdf.ico'),  # Icon in resources subdirectory
             os.path.join(self.base_path, 'manage_pdf.ico'),  # Icon in base directory
+            os.path.join(os.path.dirname(self.base_path), 'resources', 'manage_pdf.ico'),  # Icon in parent resources
             os.path.join(os.path.dirname(self.base_path), 'manage_pdf.ico'),  # Icon in parent directory
             os.path.abspath('manage_pdf.ico'),  # Icon in current working directory
         ]
@@ -643,11 +675,59 @@ class ImageToPdfConverter(QMainWindow):
         paper_layout.addWidget(QLabel("Paper Size:"), 0, 0)
         self.paper_size = QComboBox()
         self.paper_size.addItems(["A4", "Letter", "Legal", "A3", "A5"])
+        self.paper_size.setStyleSheet("""
+            QComboBox {
+                padding: 4px;
+                padding-right: 20px; /* Make room for the arrow */
+                border: 1px solid #100101;
+                border-radius: 3px;
+            }
+            QComboBox::drop-down {
+                subcontrol-origin: padding;
+                subcontrol-position: right center;
+                width: 16px;
+                border-left: 1px solid #090707;
+            }
+            QComboBox::down-arrow {
+                width: 8px;
+                height: 8px;
+                background: none;
+                border-top: 5px solid #000000;
+                border-right: 4px solid transparent;
+                border-left: 4px solid transparent;
+            }
+        """)
+        self.paper_size.setCurrentIndex(0)  # Default to A4
+        
         paper_layout.addWidget(self.paper_size, 0, 1)
         
         paper_layout.addWidget(QLabel("Orientation:"), 1, 0)
         self.combo_orient = QComboBox()
         self.combo_orient.addItems(["Portrait", "Landscape"])
+        self.combo_orient.setStyleSheet("""
+            QComboBox {
+                padding: 4px;
+                padding-right: 20px; /* Make room for the arrow */
+                border: 1px solid #100101;
+                border-radius: 3px;
+            }
+            QComboBox::drop-down {
+                subcontrol-origin: padding;
+                subcontrol-position: right center;
+                width: 16px;
+                border-left: 1px solid #090707;
+            }
+            QComboBox::down-arrow {
+                width: 8px;
+                height: 8px;
+                background: none;
+                border-top: 5px solid #000000;
+                border-right: 4px solid transparent;
+                border-left: 4px solid transparent;
+            }
+        """)
+        self.combo_orient.setCurrentIndex(0)  # Default to Portrait
+        
         paper_layout.addWidget(self.combo_orient, 1, 1)
         
         paper_layout.addWidget(QLabel("Margin (px):"), 2, 0)
@@ -673,6 +753,30 @@ class ImageToPdfConverter(QMainWindow):
         resolution_layout.addWidget(QLabel("Resolution:"))
         self.resolution = QComboBox()
         self.resolution.addItems(["Standard (150 DPI)", "Web (72 DPI)", "Print (300 DPI)", "High Quality (600 DPI)"])
+        self.resolution.setStyleSheet("""
+            QComboBox {
+                padding: 4px;
+                padding-right: 20px; /* Make room for the arrow */
+                border: 1px solid #100101;
+                border-radius: 3px;
+            }
+            QComboBox::drop-down {
+                subcontrol-origin: padding;
+                subcontrol-position: right center;
+                width: 16px;
+                border-left: 1px solid #090707;
+            }
+            QComboBox::down-arrow {
+                width: 8px;
+                height: 8px;
+                background: none;
+                border-top: 5px solid #000000;
+                border-right: 4px solid transparent;
+                border-left: 4px solid transparent;
+            }
+        """)
+        self.resolution.setCurrentIndex(0)  # Default to balanced
+        
         resolution_layout.addWidget(self.resolution)
         quality_layout.addLayout(resolution_layout)
         
@@ -681,6 +785,30 @@ class ImageToPdfConverter(QMainWindow):
         compression_layout.addWidget(QLabel("Compression:"))
         self.compression = QComboBox()
         self.compression.addItems(["Balanced", "Maximum Quality", "Minimum Size"])
+        self.compression.setStyleSheet("""
+            QComboBox {
+                padding: 4px;
+                padding-right: 20px; /* Make room for the arrow */
+                border: 1px solid #100101;
+                border-radius: 3px;
+            }
+            QComboBox::drop-down {
+                subcontrol-origin: padding;
+                subcontrol-position: right center;
+                width: 16px;
+                border-left: 1px solid #090707;
+            }
+            QComboBox::down-arrow {
+                width: 8px;
+                height: 8px;
+                background: none;
+                border-top: 5px solid #000000;
+                border-right: 4px solid transparent;    
+                border-left: 4px solid transparent;
+            }
+        """)
+        self.compression.setCurrentIndex(0)  # Default to balanced
+            
         compression_layout.addWidget(self.compression)
         quality_layout.addLayout(compression_layout)
         
@@ -852,7 +980,7 @@ class ImageToPdfConverter(QMainWindow):
                 # Get page count using ImageMagick
                 try:
                     cmd = f'magick identify "{pdf_file}"'
-                    result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+                    result = self.run_imagemagick(cmd)
                     
                     # Count the occurrences of PDF pages in the output
                     page_count = result.stdout.count(".pdf[")
@@ -1218,14 +1346,21 @@ class ImageToPdfConverter(QMainWindow):
                         
                         # Combine options
                         options = " ".join(filter(None, [rotate_option, border_option, orient_option, 
-                                                        page_size_option, quality_option, density_option, compress_option]))
+                                                         page_size_option, quality_option, density_option, compress_option]))
                         
                         cmd = f'magick "{img_file}" {options} "{out_file}"'
-                        subprocess.run(cmd, shell=True)
-                        
-                        count += 1
-                        self.progress_bar.setValue(math.floor((count / total) * 100))
-                        QApplication.processEvents()
+                        try:
+                            self.run_imagemagick(cmd)
+                            
+                            count += 1
+                            self.progress_bar.setValue(math.floor((count / total) * 100))
+                            QApplication.processEvents()
+                        except Exception as e:
+                            # Show error but continue with other files
+                            error_message = f"Error processing file {img_file}: {str(e)}"
+                            logging.error(error_message)
+                            QMessageBox.warning(self, "Processing Error", 
+                                f"Error converting {os.path.basename(img_file)}\n{str(e)}\n\nContinuing with remaining files.")
                     
                     self.status_label.setText(f"All {count} images saved as separate PDFs in: {folder}")
                     QMessageBox.information(self, "Success", f"Created {count} PDF files in:\n{folder}")
@@ -1266,7 +1401,7 @@ class ImageToPdfConverter(QMainWindow):
                         files_with_rotations.append(file_options)
                     
                     cmd = f'magick {" ".join(files_with_rotations)} {common_options} "{output_pdf}"'
-                    subprocess.run(cmd, shell=True)
+                    self.run_imagemagick(cmd)
                     
                     self.progress_bar.setValue(100)
                     self.status_label.setText(f"PDF created with {len(self.selected_files)} images: {output_pdf}")
@@ -1370,12 +1505,36 @@ class ImageToPdfConverter(QMainWindow):
         # Compression details - Replace static label with options
         compress_options_layout = QVBoxLayout()
         compress_options_label = QLabel("Compression Profile:")
+        compress_options_label.setStyleSheet(" padding:4px; ")  
         compress_options_layout.addWidget(compress_options_label)
 
         self.compression_profile = QComboBox()
         self.compression_profile.addItems(["High Quality (200 DPI, 95%)", 
-                                          "Balanced (150 DPI, 90%)", 
-                                          "Maximum Compression (100 DPI, 80%)"])
+                                           "Balanced (150 DPI, 90%)", 
+                                           "Maximum Compression (100 DPI, 80%)"])
+        # Add a visual indicator that this is a dropdown not icon just symbol using css 
+        self.compression_profile.setStyleSheet("""
+            QComboBox {
+                padding: 4px;
+                padding-right: 20px; /* Make room for the arrow */
+                border: 1px solid #100101;
+                border-radius: 3px;
+            }
+            QComboBox::drop-down {
+                subcontrol-origin: padding;
+                subcontrol-position: right center;
+                width: 16px;
+                border-left: 1px solid #090707;
+            }
+            QComboBox::down-arrow {
+                width: 8px;
+                height: 8px;
+                background: none;
+                border-top: 5px solid #000000;
+                border-right: 4px solid transparent;
+                border-left: 4px solid transparent;
+            }
+        """)
         self.compression_profile.setCurrentIndex(1)  # Default to balanced
         compress_options_layout.addWidget(self.compression_profile)
 
@@ -1675,6 +1834,442 @@ class ImageToPdfConverter(QMainWindow):
         # Add bottom stretch to push everything up
         self.merge_tab_layout.addStretch()
     
+    def extract_pages(self):
+        """Extract pages from the PDF"""
+        pdf_file = self.split_pdf_path.text()
+        page_range = self.page_range_input.text().strip()
+        
+        if not pdf_file or pdf_file == "No PDF selected":
+            QMessageBox.warning(self, "Warning", "Please select a PDF file first.")
+            return
+        
+        if not page_range:
+            QMessageBox.warning(self, "Warning", "Please specify the page range to extract.")
+            return
+        
+        # First, get the total number of pages in the PDF
+        try:
+            cmd = f'magick identify "{pdf_file}"'
+            result = self.run_imagemagick(cmd)
+            total_pages = result.stdout.count(".pdf[")
+            
+            if total_pages == 0:
+                QMessageBox.warning(self, "Warning", "Could not determine the number of pages in the PDF file.")
+                return
+                
+            self.status_label.setText(f"PDF has {total_pages} pages")
+        except Exception as e:
+            logging.error(f"Error determining page count: {str(e)}")
+            QMessageBox.critical(self, "Error", f"Error determining PDF page count: {str(e)}")
+            return
+        
+        if self.single_output_file.isChecked():
+            # Extract to a single PDF file
+            output_file, _ = QFileDialog.getSaveFileName(
+                self,
+                "Save Extracted Pages As",
+                "",
+                "PDF Files (*.pdf)"
+            )
+            
+            if output_file:
+                try:
+                    self.status_label.setText("Extracting pages...")
+                    self.progress_bar.setValue(0)
+                    
+                    # Handle special ranges
+                    if page_range.lower() == "all":
+                        # Use ImageMagick to extract all pages
+                        cmd = f'magick -density 300 "{pdf_file}" -quality 100 -compress LZW "{output_file}"'
+                        self.run_imagemagick(cmd)
+                    elif page_range.lower() == "even":
+                        # Extract only even pages (0-based index in ImageMagick would be odd numbers)
+                        even_indices = []
+                        for i in range(1, total_pages, 2):  # 1, 3, 5, etc.
+                            even_indices.append(str(i))
+                        
+                        if even_indices:
+                            cmd = f'magick -density 300 "{pdf_file}"[{",".join(even_indices)}] -quality 100 -compress LZW "{output_file}"'
+                            self.run_imagemagick(cmd)
+                        else:
+                            QMessageBox.warning(self, "Warning", "No even pages found in the PDF.")
+                            return
+                    elif page_range.lower() == "odd":
+                        # Extract only odd pages (0-based index in ImageMagick would be even numbers)
+                        odd_indices = []
+                        for i in range(0, total_pages, 2):  # 0, 2, 4, etc.
+                            odd_indices.append(str(i))
+                        
+                        if odd_indices:
+                            cmd = f'magick -density 300 "{pdf_file}"[{",".join(odd_indices)}] -quality 100 -compress LZW "{output_file}"'
+                            self.run_imagemagick(cmd)
+                        else:
+                            QMessageBox.warning(self, "Warning", "No odd pages found in the PDF.")
+                            return
+                    else:
+                        # Parse the user-provided page range
+                        adjusted_indices = []
+                        parts = page_range.split(',')
+                        
+                        try:
+                            for part in parts:
+                                if '-' in part:
+                                    # Handle ranges like "1-3"
+                                    start, end = map(int, part.split('-'))
+                                    
+                                    # Validate the range
+                                    if start < 1 or end > total_pages or start > end:
+                                        QMessageBox.warning(self, "Warning", 
+                                            f"Invalid page range: {start}-{end}. The PDF has {total_pages} pages.")
+                                        return
+                                    
+                                    # Adjust for 0-based indexing in ImageMagick
+                                    for i in range(start-1, end):
+                                        adjusted_indices.append(str(i))
+                                else:
+                                    # Handle single pages
+                                    page = int(part)
+                                    
+                                    # Validate the page number
+                                    if page < 1 or page > total_pages:
+                                        QMessageBox.warning(self, "Warning", 
+                                            f"Invalid page number: {page}. The PDF has {total_pages} pages.")
+                                        return
+                                    
+                                    # Adjust for 0-based indexing in ImageMagick
+                                    adjusted_indices.append(str(page-1))
+                        except ValueError:
+                            QMessageBox.warning(self, "Warning", 
+                                "Invalid page range format. Please use formats like '1,3,5' or '1-3,5,7-9'.")
+                            return
+                        
+                        if not adjusted_indices:
+                            QMessageBox.warning(self, "Warning", "No valid pages specified.")
+                            return
+                        
+                        # Use ImageMagick to extract the specified pages
+                        cmd = f'magick -density 300 "{pdf_file}"[{",".join(adjusted_indices)}] -quality 100 -compress LZW "{output_file}"'
+                        self.run_imagemagick(cmd)
+                    
+                    self.progress_bar.setValue(100)
+                    
+                    # Update UI
+                    file_size = os.path.getsize(output_file) / 1024  # KB
+                    if file_size > 1024:
+                        file_size = file_size / 1024  # MB
+                        size_str = f"{file_size:.2f} MB"
+                    else:
+                        size_str = f"{file_size:.2f} KB"
+                    
+                    self.pdf_info.setText(f"Extracted PDF: {os.path.basename(output_file)}\nSize: {size_str}\nLocation: {os.path.dirname(output_file)}")
+                    
+                    self.status_label.setText(f"Successfully extracted pages to {os.path.basename(output_file)}")
+                    
+                    QMessageBox.information(self, "Success", "Page extraction complete!")
+                    
+                    # Switch to tools tab if it exists
+                    if self.tab_widget.count() > 2:
+                        self.tab_widget.setCurrentIndex(2)
+                    
+                except Exception as e:
+                    logging.error(f"Error in page extraction: {str(e)}")
+                    QMessageBox.critical(self, "Error", f"Error extracting pages: {str(e)}\nSee error.log for details.")
+                    self.progress_bar.setValue(0)
+        else:  # Separate PDFs
+            output_dir = QFileDialog.getExistingDirectory(
+                self,
+                "Select Output Directory for Extracted Pages"
+            )
+            
+            if output_dir:
+                try:
+                    self.status_label.setText("Extracting pages...")
+                    self.progress_bar.setValue(0)
+                    
+                    # Parse user-provided page range
+                    if page_range.lower() in ["all", "even", "odd"]:
+                        QMessageBox.warning(self, "Warning", 
+                            "Please specify individual page numbers when extracting to separate files.")
+                        return
+                    
+                    # Parse the page range
+                    page_numbers = []
+                    parts = page_range.split(',')
+                    
+                    try:
+                        for part in parts:
+                            if '-' in part:
+                                # Handle ranges like "1-3"
+                                start, end = map(int, part.split('-'))
+                                
+                                # Validate range
+                                if start < 1 or end > total_pages or start > end:
+                                    QMessageBox.warning(self, "Warning", 
+                                        f"Invalid page range: {start}-{end}. The PDF has {total_pages} pages.")
+                                    return
+                                
+                                # Add all pages in the range
+                                for page in range(start, end + 1):
+                                    page_numbers.append(page)
+                            else:
+                                # Handle single pages
+                                page = int(part)
+                                
+                                # Validate the page number
+                                if page < 1 or page > total_pages:
+                                    QMessageBox.warning(self, "Warning", 
+                                        f"Invalid page number: {page}. The PDF has {total_pages} pages.")
+                                    return
+                                
+                                page_numbers.append(page)
+                    except ValueError:
+                        QMessageBox.warning(self, "Warning", 
+                            "Invalid page range format. Please use formats like '1,3,5' or '1-3,5,7-9'.")
+                        return
+                    
+                    if not page_numbers:
+                        QMessageBox.warning(self, "Warning", "No valid pages specified.")
+                        return
+                    
+                    # Extract each page to a separate file
+                    extracted_count = 0
+                    for i, page_num in enumerate(page_numbers):
+                        # For ImageMagick, convert to 0-based index
+                        img_idx = page_num - 1
+                        
+                        # Create output filename based on original filename and page number
+                        output_file = os.path.join(output_dir, f"{os.path.splitext(os.path.basename(pdf_file))[0]}_page{page_num}.pdf")
+                        
+                        # Use ImageMagick to extract the page
+                        cmd = f'magick -density 300 "{pdf_file}"[{img_idx}] -quality 100 -compress LZW "{output_file}"'
+                        self.run_imagemagick(cmd)
+                        
+                        extracted_count += 1
+                        progress = int((i + 1) / len(page_numbers) * 100)
+                        self.progress_bar.setValue(progress)
+                        QApplication.processEvents()
+                    
+                    self.status_label.setText(f"Successfully extracted {extracted_count} pages to {output_dir}")
+                    QMessageBox.information(self, "Success", f"Extracted {extracted_count} pages as separate PDFs!")
+                    
+                except Exception as e:
+                    logging.error(f"Error in page extraction: {str(e)}")
+                    QMessageBox.critical(self, "Error", f"Error extracting pages: {str(e)}\nSee error.log for details.")
+                    self.progress_bar.setValue(0)
+
+    def select_pdf(self):
+        """Select a PDF file for compression or preview"""
+        pdf_file, _ = QFileDialog.getOpenFileName(
+            self,
+            "Select PDF File",
+            "",
+            "PDF Files (*.pdf)"
+        )
+        
+        if pdf_file and os.path.exists(pdf_file):
+            self.latest_pdf = pdf_file
+            
+            # Enable buttons
+            self.btn_compress.setEnabled(True)
+            self.btn_preview_pdf.setEnabled(True)
+            self.btn_print_pdf.setEnabled(True)
+            
+            # Update PDF info display
+            file_size = os.path.getsize(pdf_file) / 1024  # KB
+            if file_size > 1024:
+                file_size = file_size / 1024  # MB
+                size_str = f"{file_size:.2f} MB"
+            else:
+                size_str = f"{file_size:.2f} KB"
+            
+            self.pdf_info.setText(f"Current PDF: {os.path.basename(pdf_file)}\nSize: {size_str}\nLocation: {os.path.dirname(pdf_file)}")
+            self.status_label.setText(f"PDF file selected: {os.path.basename(pdf_file)}")
+    
+    def compress_pdf(self):
+        """Compress the current PDF file"""
+        if not self.latest_pdf or not os.path.exists(self.latest_pdf):
+            QMessageBox.warning(self, "Warning", "Please select a PDF file first.")
+            return
+        
+        output_file, _ = QFileDialog.getSaveFileName(
+            self,
+            "Save Compressed PDF As",
+            "",
+            "PDF Files (*.pdf)"
+        )
+        
+        if output_file:
+            try:
+                self.status_label.setText("Compressing PDF...")
+                self.progress_bar.setValue(0)
+                
+                # Get compression settings from dropdown
+                compression_profile = self.compression_profile.currentText()
+                
+                # Set parameters based on profile
+                if "High Quality" in compression_profile:
+                    dpi = 200
+                    quality = 95
+                elif "Balanced" in compression_profile:
+                    dpi = 150
+                    quality = 90
+                else:  # Maximum Compression
+                    dpi = 100
+                    quality = 80
+                
+                # Use ImageMagick to compress the PDF
+                cmd = f'magick -density {dpi} "{self.latest_pdf}" -quality {quality} "{output_file}"'
+                self.run_imagemagick(cmd)
+                
+                self.progress_bar.setValue(100)
+                
+                # Compare file sizes
+                original_size = os.path.getsize(self.latest_pdf) / 1024  # KB
+                compressed_size = os.path.getsize(output_file) / 1024  # KB
+                
+                if original_size > 1024:
+                    original_str = f"{original_size/1024:.2f} MB"
+                else:
+                    original_str = f"{original_size:.2f} KB"
+                    
+                if compressed_size > 1024:
+                    compressed_str = f"{compressed_size/1024:.2f} MB"
+                else:
+                    compressed_str = f"{compressed_size:.2f} KB"
+                
+                # Calculate reduction percentage
+                reduction = ((original_size - compressed_size) / original_size) * 100
+                
+                # Update the latest PDF reference
+                self.latest_pdf = output_file
+                
+                # Update PDF info
+                self.pdf_info.setText(
+                    f"Compressed PDF: {os.path.basename(output_file)}\n"
+                    f"Original Size: {original_str}\n"
+                    f"Compressed Size: {compressed_str}\n"
+                    f"Reduction: {reduction:.1f}%"
+                )
+                
+                self.status_label.setText(f"PDF compressed successfully. Size reduced by {reduction:.1f}%")
+                
+                QMessageBox.information(
+                    self, 
+                    "Compression Complete", 
+                    f"PDF successfully compressed!\n\n"
+                    f"Original Size: {original_str}\n"
+                    f"Compressed Size: {compressed_str}\n"
+                    f"Reduction: {reduction:.1f}%"
+                )
+                
+            except Exception as e:
+                logging.error(f"Error in PDF compression: {str(e)}")
+                QMessageBox.critical(self, "Error", f"Error compressing PDF: {str(e)}\nSee error.log for details.")
+                self.progress_bar.setValue(0)
+    
+    def preview_pdf(self):
+        """Preview the current PDF file using system's default PDF viewer"""
+        if not self.latest_pdf or not os.path.exists(self.latest_pdf):
+            QMessageBox.warning(self, "Warning", "Please select or create a PDF file first.")
+            return
+        
+        try:
+            if sys.platform == 'win32':
+                os.startfile(self.latest_pdf)
+            elif sys.platform == 'darwin':  # macOS
+                subprocess.run(['open', self.latest_pdf])
+            else:  # Linux
+                subprocess.run(['xdg-open', self.latest_pdf])
+            
+            self.status_label.setText(f"Opening {os.path.basename(self.latest_pdf)} in default PDF viewer")
+            
+        except Exception as e:
+            logging.error(f"Error previewing PDF: {str(e)}")
+            QMessageBox.critical(self, "Error", f"Error opening PDF: {str(e)}\nSee error.log for details.")
+    
+    def print_pdf(self):
+        """Print the current PDF file using system's default print dialog"""
+        if not self.latest_pdf or not os.path.exists(self.latest_pdf):
+            QMessageBox.warning(self, "Warning", "Please select or create a PDF file first.")
+            return
+        
+        try:
+            self.status_label.setText(f"Printing {os.path.basename(self.latest_pdf)}")
+            
+            if sys.platform == 'win32':
+                # Windows printing using default application
+                os.system(f'start /min "" "print" "{self.latest_pdf}"')
+            elif sys.platform == 'darwin':  # macOS
+                subprocess.run(['lpr', self.latest_pdf])
+            else:  # Linux
+                subprocess.run(['lpr', self.latest_pdf])
+            
+            self.status_label.setText(f"Sent {os.path.basename(self.latest_pdf)} to printer")
+            
+        except Exception as e:
+            logging.error(f"Error printing PDF: {str(e)}")
+            QMessageBox.critical(self, "Error", f"Error printing PDF: {str(e)}\nSee error.log for details.")
+
+    def find_imagick(self):
+        """Find the ImageMagick executable path"""
+        # Check for portable installation first
+        portable_paths = [
+            # Check for the portable directory the user mentioned
+            os.path.join(os.getcwd(), "imagick_portable_64", "magick.exe"),
+            os.path.join(os.getcwd(), "imagick_portable_64", "convert.exe"),
+            # Check for portable directory in parent directory
+            os.path.join(os.path.dirname(os.getcwd()), "imagick_portable_64", "magick.exe"),
+            os.path.join(os.path.dirname(os.getcwd()), "imagick_portable_64", "convert.exe"),
+            # Check for other common portable locations
+            os.path.join(os.getcwd(), "imagemagick", "magick.exe"),
+            os.path.join(os.getcwd(), "ImageMagick", "magick.exe")
+        ]
+        
+        # Check if any of the portable paths exist
+        for path in portable_paths:
+            if os.path.exists(path):
+                return path
+                
+        # If no portable installation found, check system path
+        return "magick"  # Default to assuming it's in the PATH
+    
+    def run_imagemagick(self, cmd):
+        """Run ImageMagick command with proper error handling"""
+        try:
+            # Find ImageMagick executable
+            imagick_path = self.find_imagick()
+            
+            # Replace 'magick' with the full path if a portable version was found
+            if imagick_path != "magick":
+                # Replace the first occurrence of 'magick' with the full path
+                cmd = cmd.replace("magick", f'"{imagick_path}"', 1)
+            
+            # Log the command being executed
+            logging.info(f"Executing ImageMagick command: {cmd}")
+            
+            # Run the command with stdout and stderr capture
+            result = subprocess.run(cmd, shell=True, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            return result
+        except subprocess.CalledProcessError as e:
+            error_message = f"ImageMagick command failed: {e.stderr}"
+            logging.error(error_message)
+            raise Exception(f"ImageMagick error: {e.stderr}")
+        except Exception as e:
+            logging.error(f"Error running ImageMagick: {str(e)}")
+            raise
+
+    def count_pages(self, pdf_file):
+        """Count the number of pages in a PDF file using ImageMagick"""
+        try:
+            cmd = f'magick identify "{pdf_file}"'
+            result = self.run_imagemagick(cmd)
+            
+            # Count the number of pages
+            return len(result.stdout.strip().split('\n'))
+        except Exception as e:
+            print(f"Error counting pages: {e}")
+            return 0
+
     def update_merge_summary(self):
         """Update the merge summary display"""
         count = self.pdf_listbox.count()
@@ -1688,6 +2283,109 @@ class ImageToPdfConverter(QMainWindow):
             self.merge_summary.setText(f"{count} PDF files ready to merge")
             self.btn_merge_pdfs.setEnabled(True)
     
+    def add_pdf(self):
+        """Add a PDF to the merge list"""
+        files, _ = QFileDialog.getOpenFileNames(
+            self,
+            "Select PDF Files",
+            "",
+            "PDF Files (*.pdf)"
+        )
+        
+        if files:
+            for file in files:
+                self.pdf_listbox.addItem(file)
+            
+            self.update_merge_summary()
+    
+    def remove_pdf(self):
+        """Remove the selected PDF from the merge list"""
+        current_row = self.pdf_listbox.currentRow()
+        if current_row >= 0:
+            self.pdf_listbox.takeItem(current_row)
+            self.update_merge_summary()
+            self.status_label.setText(f"Removed PDF from merge list")
+
+    def move_pdf_up(self):
+        """Move the selected PDF up in the list"""
+        current_row = self.pdf_listbox.currentRow()
+        if current_row > 0:
+            item = self.pdf_listbox.takeItem(current_row)
+            self.pdf_listbox.insertItem(current_row - 1, item)
+            self.pdf_listbox.setCurrentRow(current_row - 1)
+            self.status_label.setText("Moved PDF up in the list")
+    
+    def move_pdf_down(self):
+        """Move the selected PDF down in the list"""
+        current_row = self.pdf_listbox.currentRow()
+        if current_row >= 0 and current_row < self.pdf_listbox.count() - 1:
+            item = self.pdf_listbox.takeItem(current_row)
+            self.pdf_listbox.insertItem(current_row + 1, item)
+            self.pdf_listbox.setCurrentRow(current_row + 1)
+            self.status_label.setText("Moved PDF down in the list")
+
+    def merge_pdfs(self):
+        """Merge PDFs in the list"""
+        if self.pdf_listbox.count() < 2:
+            QMessageBox.warning(self, "Warning", "Please add at least two PDF files to merge.")
+            return
+        
+        output_pdf, _ = QFileDialog.getSaveFileName(
+            self,
+            "Save Merged PDF As",
+            "",
+            "PDF Files (*.pdf)"
+        )
+        
+        if output_pdf:
+            try:
+                self.status_label.setText("Merging PDFs...")
+                self.progress_bar.setValue(0)
+                
+                # Get all PDFs from the list
+                pdf_files = []
+                for i in range(self.pdf_listbox.count()):
+                    pdf_files.append(self.pdf_listbox.item(i).text())
+                
+                # Use ImageMagick to merge PDFs with high quality settings
+                pdf_files_quoted = [f'"{pdf_file}"' for pdf_file in pdf_files]
+                cmd = f'magick -density 300 -quality 100 {" ".join(pdf_files_quoted)} -compress lossless "{output_pdf}"'
+                self.run_imagemagick(cmd)
+                
+                self.progress_bar.setValue(100)
+                QMessageBox.information(self, "Success", f"PDFs have been merged into:\n{output_pdf}")
+                
+                # Update the latest PDF for tools tab
+                self.latest_pdf = output_pdf
+                
+                # Enable buttons if they exist
+                if hasattr(self, 'btn_preview_pdf'):
+                    self.btn_preview_pdf.setEnabled(True)
+                if hasattr(self, 'btn_print_pdf'):
+                    self.btn_print_pdf.setEnabled(True)
+                if hasattr(self, 'btn_compress'):
+                    self.btn_compress.setEnabled(True)
+                
+                # Update PDF info if it exists
+                if hasattr(self, 'pdf_info'):
+                    file_size = os.path.getsize(output_pdf) / 1024  # KB
+                    if file_size > 1024:
+                        file_size = file_size / 1024  # MB
+                        size_str = f"{file_size:.2f} MB"
+                    else:
+                        size_str = f"{file_size:.2f} KB"
+                    
+                    self.pdf_info.setText(f"Current PDF: {os.path.basename(output_pdf)}\nSize: {size_str}\nLocation: {os.path.dirname(output_pdf)}")
+                
+                # Switch to Tools tab if it exists
+                if self.tab_widget.count() > 2:
+                    self.tab_widget.setCurrentIndex(2)
+                
+            except Exception as e:
+                logging.error(f"Error in PDF merge: {str(e)}")
+                QMessageBox.critical(self, "Error", f"Error merging PDFs: {str(e)}\nSee error.log for details.")
+                self.progress_bar.setValue(0)
+
     def setup_split_tab(self):
         """Setup the Split PDF Tab"""
         
@@ -1976,106 +2674,6 @@ class ImageToPdfConverter(QMainWindow):
         # Add bottom stretch to push everything up
         self.split_tab_layout.addStretch()
     
-    def add_pdf(self):
-        """Add a PDF to the merge list"""
-        files, _ = QFileDialog.getOpenFileNames(
-            self,
-            "Select PDF Files",
-            "",
-            "PDF Files (*.pdf)"
-        )
-        
-        if files:
-            for file in files:
-                self.pdf_listbox.addItem(file)
-            
-            self.btn_merge_pdfs.setEnabled(self.pdf_listbox.count() > 1)
-    
-    def remove_pdf(self):
-        """Remove the selected PDF from the merge list"""
-        current_row = self.pdf_listbox.currentRow()
-        if current_row >= 0:
-            self.pdf_listbox.takeItem(current_row)
-            self.btn_merge_pdfs.setEnabled(self.pdf_listbox.count() > 1)
-    
-    def move_pdf_up(self):
-        """Move the selected PDF up in the list"""
-        current_row = self.pdf_listbox.currentRow()
-        if current_row > 0:
-            item = self.pdf_listbox.takeItem(current_row)
-            self.pdf_listbox.insertItem(current_row - 1, item)
-            self.pdf_listbox.setCurrentRow(current_row - 1)
-    
-    def move_pdf_down(self):
-        """Move the selected PDF down in the list"""
-        current_row = self.pdf_listbox.currentRow()
-        if current_row >= 0 and current_row < self.pdf_listbox.count() - 1:
-            item = self.pdf_listbox.takeItem(current_row)
-            self.pdf_listbox.insertItem(current_row + 1, item)
-            self.pdf_listbox.setCurrentRow(current_row + 1)
-    
-    def merge_pdfs(self):
-        """Merge PDFs in the list"""
-        if self.pdf_listbox.count() < 2:
-            QMessageBox.warning(self, "Warning", "Please add at least two PDF files to merge.")
-            return
-        
-        output_pdf, _ = QFileDialog.getSaveFileName(
-            self,
-            "Save Merged PDF As",
-            "",
-            "PDF Files (*.pdf)"
-        )
-        
-        if output_pdf:
-            try:
-                self.status_label.setText("Merging PDFs...")
-                self.progress_bar.setValue(0)
-                
-                # Get all PDFs from the list
-                pdf_files = []
-                for i in range(self.pdf_listbox.count()):
-                    pdf_files.append(self.pdf_listbox.item(i).text())
-                
-                # Use ImageMagick to merge PDFs with high quality settings
-                pdf_files_quoted = [f'"{pdf_file}"' for pdf_file in pdf_files]
-                cmd = f'magick -density 250 -quality 100 {" ".join(pdf_files_quoted)} -compress lossless "{output_pdf}"'
-                subprocess.run(cmd, shell=True)
-                
-                self.progress_bar.setValue(100)
-                QMessageBox.information(self, "Success", f"PDFs have been merged into:\n{output_pdf}")
-                
-                # Update the latest PDF for tools tab
-                self.latest_pdf = output_pdf
-                
-                # Enable buttons if they exist
-                if hasattr(self, 'btn_preview_pdf'):
-                    self.btn_preview_pdf.setEnabled(True)
-                if hasattr(self, 'btn_print_pdf'):
-                    self.btn_print_pdf.setEnabled(True)
-                if hasattr(self, 'btn_compress'):
-                    self.btn_compress.setEnabled(True)
-                
-                # Update PDF info if it exists
-                if hasattr(self, 'pdf_info'):
-                    file_size = os.path.getsize(output_pdf) / 1024  # KB
-                    if file_size > 1024:
-                        file_size = file_size / 1024  # MB
-                        size_str = f"{file_size:.2f} MB"
-                    else:
-                        size_str = f"{file_size:.2f} KB"
-                    
-                    self.pdf_info.setText(f"Current PDF: {os.path.basename(output_pdf)}\nSize: {size_str}\nLocation: {os.path.dirname(output_pdf)}")
-                
-                # Switch to Tools tab if it exists
-                if self.tab_widget.count() > 2:
-                    self.tab_widget.setCurrentIndex(2)
-                
-            except Exception as e:
-                logging.error(f"Error in PDF merge: {str(e)}")
-                QMessageBox.critical(self, "Error", f"Error merging PDFs: {str(e)}\nSee error.log for details.")
-                self.progress_bar.setValue(0)
-    
     def select_pdf_to_split(self):
         """Select a PDF file to split"""
         pdf_file, _ = QFileDialog.getOpenFileName(
@@ -2092,7 +2690,7 @@ class ImageToPdfConverter(QMainWindow):
             # Get page count using ImageMagick
             try:
                 cmd = f'magick identify "{pdf_file}"'
-                result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+                result = self.run_imagemagick(cmd)
                 
                 # Count the occurrences of PDF pages in the output
                 page_count = result.stdout.count(".pdf[")
@@ -2118,314 +2716,238 @@ class ImageToPdfConverter(QMainWindow):
             self.page_range_input.setText("even")
         elif range_type == "odd":
             self.page_range_input.setText("odd")
-    
-    def extract_pages(self):
-        """Extract pages from the PDF"""
-        pdf_file = self.split_pdf_path.text()
-        page_range = self.page_range_input.text().strip()
-        
-        if not pdf_file or pdf_file == "No PDF selected":
-            QMessageBox.warning(self, "Warning", "Please select a PDF file first.")
-            return
-        
-        if not page_range:
-            QMessageBox.warning(self, "Warning", "Please specify the page range to extract.")
-            return
-        
-        if self.single_output_file.isChecked():
-            # Extract to a single PDF file
-            output_file, _ = QFileDialog.getSaveFileName(
-                self,
-                "Save Extracted Pages As",
-                "",
-                "PDF Files (*.pdf)"
-            )
-            
-            if output_file:
-                try:
-                    self.status_label.setText("Extracting pages...")
-                    self.progress_bar.setValue(0)
-                    
-                    # Handle special ranges
-                    if page_range.lower() == "all":
-                        # Use ImageMagick to extract all pages
-                        cmd = f'magick -density 300 "{pdf_file}" -quality 100 -compress LZW "{output_file}"'
-                    elif page_range.lower() == "even":
-                        # Use ImageMagick to extract even pages
-                        cmd = f'magick -density 300 "{pdf_file}"[1::2] -quality 100 -compress LZW "{output_file}"'
-                    elif page_range.lower() == "odd":
-                        # Use ImageMagick to extract odd pages
-                        cmd = f'magick -density 300 "{pdf_file}"[0::2] -quality 100 -compress LZW "{output_file}"'
-                    else:
-                        # Convert user-provided 1-based page numbers to 0-based for ImageMagick
-                        adjusted_range = ""
-                        parts = page_range.split(',')
-                        
-                        for part in parts:
-                            if '-' in part:
-                                # Handle ranges like "1-3"
-                                start, end = map(int, part.split('-'))
-                                # Adjust to 0-based indexing
-                                adjusted_start = start - 1
-                                adjusted_end = end - 1
-                                if adjusted_range:
-                                    adjusted_range += f",{adjusted_start}-{adjusted_end}"
-                                else:
-                                    adjusted_range = f"{adjusted_start}-{adjusted_end}"
-                            else:
-                                # Handle single pages
-                                try:
-                                    # Adjust to 0-based indexing
-                                    page_idx = int(part) - 1
-                                    if adjusted_range:
-                                        adjusted_range += f",{page_idx}"
-                                    else:
-                                        adjusted_range = f"{page_idx}"
-                                except ValueError:
-                                    # If not a valid integer, keep as is
-                                    if adjusted_range:
-                                        adjusted_range += f",{part}"
-                                    else:
-                                        adjusted_range = part
-                        
-                        # Use ImageMagick to extract specific pages with adjusted indexing
-                        cmd = f'magick -density 300 "{pdf_file}"[{adjusted_range}] -quality 100 -compress LZW "{output_file}"'
-                    
-                    subprocess.run(cmd, shell=True)
-                    
-                    self.progress_bar.setValue(100)
-                    
-                    # Update UI
-                    file_size = os.path.getsize(output_file) / 1024  # KB
-                    if file_size > 1024:
-                        file_size = file_size / 1024  # MB
-                        size_str = f"{file_size:.2f} MB"
-                    else:
-                        size_str = f"{file_size:.2f} KB"
-                    
-                    self.pdf_info.setText(f"Extracted PDF: {os.path.basename(output_file)}\nSize: {size_str}\nLocation: {os.path.dirname(output_file)}")
-                    
-                    self.status_label.setText(f"Successfully extracted pages to {os.path.basename(output_file)}")
-                    
-                    QMessageBox.information(self, "Success", "Page extraction complete!")
-                    
-                    # Switch to tools tab if it exists
-                    if self.tab_widget.count() > 2:
-                        self.tab_widget.setCurrentIndex(2)
-                    
-                except Exception as e:
-                    logging.error(f"Error in page extraction: {str(e)}")
-                    QMessageBox.critical(self, "Error", f"Error extracting pages: {str(e)}\nSee error.log for details.")
-                    self.progress_bar.setValue(0)
-        else:  # Separate PDFs
-            output_dir = QFileDialog.getExistingDirectory(
-                self,
-                "Select Output Directory for Extracted Pages"
-            )
-            
-            if output_dir:
-                try:
-                    self.status_label.setText("Extracting pages...")
-                    self.progress_bar.setValue(0)
-                    
-                    # Parse page ranges (already validated above)
-                    page_indices = page_range.split(',')
-                    extracted_count = 0
-                    
-                    for i, idx in enumerate(page_indices):
-                        # Convert to 0-based index for ImageMagick
-                        if '-' in idx:
-                            # Handle range like "1-3"
-                            start, end = map(int, idx.split('-'))
-                            # Use original values for filename (1-based)
-                            page_num = f"{start}-{end}"
-                            # Adjust for ImageMagick (0-based)
-                            img_idx = f"{start-1}-{end-1}"
-                        else:
-                            try:
-                                # For filename, use the user-provided 1-based number
-                                page_num = idx
-                                # For ImageMagick, convert to 0-based
-                                img_idx = str(int(idx) - 1)
-                            except ValueError:
-                                # If not a valid integer, keep as is
-                                img_idx = idx
-                                page_num = idx
-                                
-                        output_file = os.path.join(output_dir, f"{os.path.splitext(os.path.basename(pdf_file))[0]}_page{page_num}.pdf")
-                        
-                        # Use ImageMagick to extract the page with adjusted index
-                        cmd = f'magick -density 300 "{pdf_file}"[{img_idx}] -quality 100 -compress LZW "{output_file}"'
-                        subprocess.run(cmd, shell=True)
-                        
-                        extracted_count += 1
-                        progress = int((i + 1) / len(page_indices) * 100)
-                        self.progress_bar.setValue(progress)
-                        QApplication.processEvents()
-                    
-                    self.status_label.setText(f"Successfully extracted {extracted_count} pages to {output_dir}")
-                    QMessageBox.information(self, "Success", f"Extracted {extracted_count} pages as separate PDFs!")
-                    
-                except Exception as e:
-                    logging.error(f"Error in page extraction: {str(e)}")
-                    QMessageBox.critical(self, "Error", f"Error extracting pages: {str(e)}\nSee error.log for details.")
-                    self.progress_bar.setValue(0)
-
-    def select_pdf(self):
-        """Select a PDF file for compression or preview"""
-        pdf_file, _ = QFileDialog.getOpenFileName(
-            self,
-            "Select PDF File",
-            "",
-            "PDF Files (*.pdf)"
-        )
-        
-        if pdf_file and os.path.exists(pdf_file):
-            self.latest_pdf = pdf_file
-            
-            # Enable buttons
-            self.btn_compress.setEnabled(True)
-            self.btn_preview_pdf.setEnabled(True)
-            self.btn_print_pdf.setEnabled(True)
-            
-            # Update PDF info display
-            file_size = os.path.getsize(pdf_file) / 1024  # KB
-            if file_size > 1024:
-                file_size = file_size / 1024  # MB
-                size_str = f"{file_size:.2f} MB"
-            else:
-                size_str = f"{file_size:.2f} KB"
-            
-            self.pdf_info.setText(f"Current PDF: {os.path.basename(pdf_file)}\nSize: {size_str}\nLocation: {os.path.dirname(pdf_file)}")
-            self.status_label.setText(f"PDF file selected: {os.path.basename(pdf_file)}")
-    
-    def compress_pdf(self):
-        """Compress the current PDF file"""
-        if not self.latest_pdf or not os.path.exists(self.latest_pdf):
-            QMessageBox.warning(self, "Warning", "Please select a PDF file first.")
-            return
-        
-        output_file, _ = QFileDialog.getSaveFileName(
-            self,
-            "Save Compressed PDF As",
-            "",
-            "PDF Files (*.pdf)"
-        )
-        
-        if output_file:
-            try:
-                self.status_label.setText("Compressing PDF...")
-                self.progress_bar.setValue(0)
-                
-                # Get compression settings from dropdown
-                compression_profile = self.compression_profile.currentText()
-                
-                # Set parameters based on profile
-                if "High Quality" in compression_profile:
-                    dpi = 200
-                    quality = 95
-                elif "Balanced" in compression_profile:
-                    dpi = 150
-                    quality = 90
-                else:  # Maximum Compression
-                    dpi = 100
-                    quality = 80
-                
-                # Use ImageMagick to compress the PDF
-                cmd = f'magick -density {dpi} "{self.latest_pdf}" -quality {quality} "{output_file}"'
-                subprocess.run(cmd, shell=True)
-                
-                self.progress_bar.setValue(100)
-                
-                # Compare file sizes
-                original_size = os.path.getsize(self.latest_pdf) / 1024  # KB
-                compressed_size = os.path.getsize(output_file) / 1024  # KB
-                
-                if original_size > 1024:
-                    original_str = f"{original_size/1024:.2f} MB"
-                else:
-                    original_str = f"{original_size:.2f} KB"
-                    
-                if compressed_size > 1024:
-                    compressed_str = f"{compressed_size/1024:.2f} MB"
-                else:
-                    compressed_str = f"{compressed_size:.2f} KB"
-                
-                # Calculate reduction percentage
-                reduction = ((original_size - compressed_size) / original_size) * 100
-                
-                # Update the latest PDF reference
-                self.latest_pdf = output_file
-                
-                # Update PDF info
-                self.pdf_info.setText(
-                    f"Compressed PDF: {os.path.basename(output_file)}\n"
-                    f"Original Size: {original_str}\n"
-                    f"Compressed Size: {compressed_str}\n"
-                    f"Reduction: {reduction:.1f}%"
-                )
-                
-                self.status_label.setText(f"PDF compressed successfully. Size reduced by {reduction:.1f}%")
-                
-                QMessageBox.information(
-                    self, 
-                    "Compression Complete", 
-                    f"PDF successfully compressed!\n\n"
-                    f"Original Size: {original_str}\n"
-                    f"Compressed Size: {compressed_str}\n"
-                    f"Reduction: {reduction:.1f}%"
-                )
-                
-            except Exception as e:
-                logging.error(f"Error in PDF compression: {str(e)}")
-                QMessageBox.critical(self, "Error", f"Error compressing PDF: {str(e)}\nSee error.log for details.")
-                self.progress_bar.setValue(0)
-    
-    def preview_pdf(self):
-        """Preview the current PDF file using system's default PDF viewer"""
-        if not self.latest_pdf or not os.path.exists(self.latest_pdf):
-            QMessageBox.warning(self, "Warning", "Please select or create a PDF file first.")
-            return
-        
-        try:
-            if sys.platform == 'win32':
-                os.startfile(self.latest_pdf)
-            elif sys.platform == 'darwin':  # macOS
-                subprocess.run(['open', self.latest_pdf])
-            else:  # Linux
-                subprocess.run(['xdg-open', self.latest_pdf])
-            
-            self.status_label.setText(f"Opening {os.path.basename(self.latest_pdf)} in default PDF viewer")
-            
-        except Exception as e:
-            logging.error(f"Error previewing PDF: {str(e)}")
-            QMessageBox.critical(self, "Error", f"Error opening PDF: {str(e)}\nSee error.log for details.")
-    
-    def print_pdf(self):
-        """Print the current PDF file using system's default print dialog"""
-        if not self.latest_pdf or not os.path.exists(self.latest_pdf):
-            QMessageBox.warning(self, "Warning", "Please select or create a PDF file first.")
-            return
-        
-        try:
-            self.status_label.setText(f"Printing {os.path.basename(self.latest_pdf)}")
-            
-            if sys.platform == 'win32':
-                # Windows printing using default application
-                os.system(f'start /min "" "print" "{self.latest_pdf}"')
-            elif sys.platform == 'darwin':  # macOS
-                subprocess.run(['lpr', self.latest_pdf])
-            else:  # Linux
-                subprocess.run(['lpr', self.latest_pdf])
-            
-            self.status_label.setText(f"Sent {os.path.basename(self.latest_pdf)} to printer")
-            
-        except Exception as e:
-            logging.error(f"Error printing PDF: {str(e)}")
-            QMessageBox.critical(self, "Error", f"Error printing PDF: {str(e)}\nSee error.log for details.")
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     window = ImageToPdfConverter()
     window.show()
     sys.exit(app.exec())
+    app = QApplication(sys.argv)
+    window = ImageToPdfConverter()
+    window.show()
+    sys.exit(app.exec())
+    app = QApplication(sys.argv)
+    window = ImageToPdfConverter()
+    window.show()
+    sys.exit(app.exec())
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("PDF Manager | by mohammedhank91")
+        self.setGeometry(100, 100, 900, 650)  # Slightly smaller default size
+        
+        # Explicitly set window to be resizable
+        self.setWindowFlags(self.windowFlags() & ~Qt.WindowType.WindowMaximizeButtonHint)
+        self.setWindowFlags(self.windowFlags() | Qt.WindowType.WindowMaximizeButtonHint)
+        self.setMinimumSize(840, 680)  # Set reasonable minimum window size
+        
+        # Set the base path using the simplified approach
+        self.base_path = get_base_path()
+        
+        # Configure ImageMagick path - first check for portable installation
+        self.imagick_path = self.find_imagick()
+        
+        # Set application icon - try multiple potential locations
+        icon_found = False
+        icon_paths = [
+            os.path.join(self.base_path, 'resources', 'manage_pdf.ico'),  # Icon in resources subdirectory
+            os.path.join(self.base_path, 'manage_pdf.ico'),  # Icon in base directory
+            os.path.join(os.path.dirname(self.base_path), 'resources', 'manage_pdf.ico'),  # Icon in parent resources
+            os.path.join(os.path.dirname(self.base_path), 'manage_pdf.ico'),  # Icon in parent directory
+            os.path.abspath('manage_pdf.ico'),  # Icon in current working directory
+        ]
+        
+        for icon_path in icon_paths:
+            if os.path.exists(icon_path):
+                self.setWindowIcon(QIcon(icon_path))
+                icon_found = True
+                print(f"Icon loaded from: {icon_path}")
+                break
+                
+        if not icon_found:
+            print("Warning: Application icon could not be found at any of these locations:")
+            for path in icon_paths:
+                print(f"  - {path}")
+        
+        # call to setupdragdrop
+        self.setupDragDrop()
+        
+        # Apply modern styling
+        self.apply_modern_style()
+        
+        # Global variables
+        self.zoom_factor = 1.0
+        self.latest_pdf = None
+        self.selected_files = []
+        self.rotations = {}  # Key: index, Value: rotation angle (0,90,180,270)
+        self.current_index = 0
+        
+        # Setup logging
+        logging.basicConfig(filename="error.log", level=logging.ERROR, 
+                           format='%(asctime)s : %(message)s', 
+                           datefmt='%Y-%m-%d %H:%M:%S')
+        
+        # Create central widget and tab layout
+        self.central_widget = QWidget()
+        self.setCentralWidget(self.central_widget)
+        self.main_layout = QVBoxLayout(self.central_widget)
+        
+        # Create tab widget
+        self.tab_widget = QTabWidget()
+        self.tab_widget.setDocumentMode(True)
+        
+        # Create tabs
+        self.main_tab = QWidget()
+        self.convert_tab = QWidget()
+        self.tools_tab = QWidget()
+        self.merge_tab = QWidget()
+        self.split_tab = QWidget()
+        
+        # Add tabs to widget
+        self.tab_widget.addTab(self.main_tab, "Main")
+        self.tab_widget.addTab(self.convert_tab, "Convert")
+        self.tab_widget.addTab(self.tools_tab, "Compress PDF")
+        self.tab_widget.addTab(self.merge_tab, "Merge PDFs")
+        self.tab_widget.addTab(self.split_tab, "Split PDF")
+        
+        # Add tab widget to main layout
+        self.main_layout.addWidget(self.tab_widget)
+        
+        # Create layouts for each tab
+        self.main_tab_layout = QVBoxLayout(self.main_tab)
+        self.convert_tab_layout = QVBoxLayout(self.convert_tab)
+        self.tools_tab_layout = QVBoxLayout(self.tools_tab)
+        self.merge_tab_layout = QVBoxLayout(self.merge_tab)
+        self.split_tab_layout = QVBoxLayout(self.split_tab)
+        
+        # Status bar at the bottom of main window (visible across all tabs)
+        self.status_layout = QVBoxLayout()
+        
+        # Status label
+        self.status_label = QLabel("")
+        self.status_label.setObjectName("statusLabel")
+        self.status_layout.addWidget(self.status_label)
+        
+        # Progress bar
+        self.progress_bar = QProgressBar()
+        self.progress_bar.setTextVisible(True)
+        self.progress_bar.setObjectName("progressBar")
+        self.status_layout.addWidget(self.progress_bar)
+        
+        # Add status layout to main layout
+        self.main_layout.addLayout(self.status_layout)
+        
+        # Set up each tab with widgets
+        self.setup_main_tab()
+        self.setup_convert_tab()
+        self.setup_tools_tab()
+        self.setup_merge_tab()
+        self.setup_split_tab()
+        
+        # Add developer credit
+        self.add_developer_credit()
+    
+    def apply_modern_style(self):
+        """Apply a modern style to the entire application"""
+        # Main style for the app
+        self.setStyleSheet("""
+            QMainWindow, QWidget {
+                background-color: #f5f5f7;
+                color: #333333;
+                font-family: 'Segoe UI', Arial, sans-serif;
+                font-size: 9pt;
+            }
+            
+            QTabWidget::pane {
+                border: 1px solid #cccccc;
+                border-radius: 8px;
+                background-color: white;
+                padding: 6px;
+            }
+            
+            QTabBar::tab {
+                background-color: #e0e0e5;
+                color: #505050;
+                border: 1px solid #c0c0c0;
+                border-bottom: none;
+                padding: 6px 12px;
+                border-top-left-radius: 6px;
+                border-top-right-radius: 6px;
+                min-width: 80px;
+                font-weight: bold;
+                font-size: 9pt;
+            }
+            
+            QTabBar::tab:selected {
+                background-color: white;
+                color: #1e88e5;
+                border-bottom: none;
+            }
+            
+            QTabBar::tab:hover:!selected {
+                background-color: #efefef;
+                color: #1976d2;
+                border-color: #aaaaaa;
+            }
+            
+            QPushButton {
+                background-color: #2196f3;
+                color: white;
+                border: none;
+                border-radius: 3px;
+                padding: 4px 10px;
+                font-weight: bold;
+            }
+            
+            QPushButton:hover {
+                background-color: #1976d2;
+            }
+            
+            QPushButton:disabled {
+                background-color: #b0bec5;
+                color: #e0e0e0;
+            }
+            
+            QLineEdit, QComboBox, QSpinBox {
+                border: 1px solid #b0bec5;
+                border-radius: 3px;
+                padding: 3px;
+                background-color: white;
+            }
+            
+            QLineEdit:focus, QComboBox:focus, QSpinBox:focus {
+                border: 1px solid #2196f3;
+            }
+            
+            QProgressBar {
+                border: 1px solid #b0bec5;
+                border-radius: 3px;
+                background-color: #e0e0e0;
+            }
+            
+            QProgressBar::chunk {
+                background-color: #2196f3;
+            }
+            
+            /* Special tab styling */
+            #statusLabel {
+                color: #455a64;
+                font-size: 9pt;
+                margin-top: 5px;
+            }
+            
+            /* List widget styling */
+            QListWidget {
+                border: 1px solid #b0bec5;
+                border-radius: 3px;
+                background-color: white;
+            }
+            
+            QListWidget::item {
+                padding: 3px;
+            }
+            
+            QListWidget::item:selected {
+                background-color: #bbdefb;
+                color: #0d47a1;
+            }
+        """) 
