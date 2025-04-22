@@ -58,8 +58,13 @@ class ImageToPdfConverter(QMainWindow):
         
         # Determine the application base path (works in both script and frozen mode)
         if getattr(sys, 'frozen', False):
-            # Running as PyInstaller bundle
-            self.base_path = sys._MEIPASS
+            # We're running in a frozen/compiled environment
+            if hasattr(sys, '_MEIPASS'):
+                # PyInstaller bundle
+                self.base_path = sys._MEIPASS
+            else:
+                # cx_Freeze build
+                self.base_path = os.path.dirname(sys.executable)
         else:
             # Running as script
             self.base_path = os.path.abspath(os.path.dirname(__file__))
@@ -1509,9 +1514,10 @@ class ImageToPdfConverter(QMainWindow):
         compress_options_layout.addWidget(compress_options_label)
 
         self.compression_profile = QComboBox()
-        self.compression_profile.addItems(["High Quality (200 DPI, 95%)", 
-                                           "Balanced (150 DPI, 90%)", 
-                                           "Maximum Compression (100 DPI, 80%)"])
+        self.compression_profile.addItems(["Maximum Quality (300 DPI, 100%)", 
+                                           "High Quality (250 DPI, 95%)", 
+                                           "Balanced (200 DPI, 90%)", 
+                                           "Maximum Compression (150 DPI, 85%)"])
         # Add a visual indicator that this is a dropdown not icon just symbol using css 
         self.compression_profile.setStyleSheet("""
             QComboBox {
@@ -2084,245 +2090,108 @@ class ImageToPdfConverter(QMainWindow):
             
             self.pdf_info.setText(f"Current PDF: {os.path.basename(pdf_file)}\nSize: {size_str}\nLocation: {os.path.dirname(pdf_file)}")
             self.status_label.setText(f"PDF file selected: {os.path.basename(pdf_file)}")
-    
-    def compress_pdf(self):
-        """Compress the current PDF file"""
-        if not self.latest_pdf or not os.path.exists(self.latest_pdf):
-            QMessageBox.warning(self, "Warning", "Please select a PDF file first.")
-            return
-        
-        output_file, _ = QFileDialog.getSaveFileName(
-            self,
-            "Save Compressed PDF As",
-            "",
-            "PDF Files (*.pdf)"
-        )
-        
-        if output_file:
-            try:
-                self.status_label.setText("Compressing PDF...")
-                self.progress_bar.setValue(0)
-                
-                # Get compression settings from dropdown
-                compression_profile = self.compression_profile.currentText()
-                
-                # Set parameters based on profile
-                if "High Quality" in compression_profile:
-                    dpi = 200
-                    quality = 95
-                elif "Balanced" in compression_profile:
-                    dpi = 150
-                    quality = 90
-                else:  # Maximum Compression
-                    dpi = 100
-                    quality = 80
-                
-                # Use ImageMagick to compress the PDF
-                cmd = f'magick -density {dpi} "{self.latest_pdf}" -quality {quality} "{output_file}"'
-                self.run_imagemagick(cmd)
-                
-                self.progress_bar.setValue(100)
-                
-                # Compare file sizes
-                original_size = os.path.getsize(self.latest_pdf) / 1024  # KB
-                compressed_size = os.path.getsize(output_file) / 1024  # KB
-                
-                if original_size > 1024:
-                    original_str = f"{original_size/1024:.2f} MB"
-                else:
-                    original_str = f"{original_size:.2f} KB"
-                    
-                if compressed_size > 1024:
-                    compressed_str = f"{compressed_size/1024:.2f} MB"
-                else:
-                    compressed_str = f"{compressed_size:.2f} KB"
-                
-                # Calculate reduction percentage
-                reduction = ((original_size - compressed_size) / original_size) * 100
-                
-                # Update the latest PDF reference
-                self.latest_pdf = output_file
-                
-                # Update PDF info
-                self.pdf_info.setText(
-                    f"Compressed PDF: {os.path.basename(output_file)}\n"
-                    f"Original Size: {original_str}\n"
-                    f"Compressed Size: {compressed_str}\n"
-                    f"Reduction: {reduction:.1f}%"
-                )
-                
-                self.status_label.setText(f"PDF compressed successfully. Size reduced by {reduction:.1f}%")
-                
-                QMessageBox.information(
-                    self, 
-                    "Compression Complete", 
-                    f"PDF successfully compressed!\n\n"
-                    f"Original Size: {original_str}\n"
-                    f"Compressed Size: {compressed_str}\n"
-                    f"Reduction: {reduction:.1f}%"
-                )
-                
-            except Exception as e:
-                logging.error(f"Error in PDF compression: {str(e)}")
-                QMessageBox.critical(self, "Error", f"Error compressing PDF: {str(e)}\nSee error.log for details.")
-                self.progress_bar.setValue(0)
-    
-    def preview_pdf(self):
-        """Preview the current PDF file using system's default PDF viewer"""
-        if not self.latest_pdf or not os.path.exists(self.latest_pdf):
-            QMessageBox.warning(self, "Warning", "Please select or create a PDF file first.")
-            return
-        
-        try:
-            if sys.platform == 'win32':
-                os.startfile(self.latest_pdf)
-            elif sys.platform == 'darwin':  # macOS
-                subprocess.run(['open', self.latest_pdf])
-            else:  # Linux
-                subprocess.run(['xdg-open', self.latest_pdf])
-            
-            self.status_label.setText(f"Opening {os.path.basename(self.latest_pdf)} in default PDF viewer")
-            
-        except Exception as e:
-            logging.error(f"Error previewing PDF: {str(e)}")
-            QMessageBox.critical(self, "Error", f"Error opening PDF: {str(e)}\nSee error.log for details.")
-    
-    def print_pdf(self):
-        """Print the current PDF file using system's default print dialog"""
-        if not self.latest_pdf or not os.path.exists(self.latest_pdf):
-            QMessageBox.warning(self, "Warning", "Please select or create a PDF file first.")
-            return
-        
-        try:
-            self.status_label.setText(f"Printing {os.path.basename(self.latest_pdf)}")
-            
-            if sys.platform == 'win32':
-                # Windows printing using default application
-                os.system(f'start /min "" "print" "{self.latest_pdf}"')
-            elif sys.platform == 'darwin':  # macOS
-                subprocess.run(['lpr', self.latest_pdf])
-            else:  # Linux
-                subprocess.run(['lpr', self.latest_pdf])
-            
-            self.status_label.setText(f"Sent {os.path.basename(self.latest_pdf)} to printer")
-            
-        except Exception as e:
-            logging.error(f"Error printing PDF: {str(e)}")
-            QMessageBox.critical(self, "Error", f"Error printing PDF: {str(e)}\nSee error.log for details.")
 
     def find_imagick(self):
         """Find the ImageMagick executable path"""
         # Check for portable installation first
         portable_paths = [
-            # Check for the portable directory the user mentioned
+            # Current directory
             os.path.join(os.getcwd(), "imagick_portable_64", "magick.exe"),
             os.path.join(os.getcwd(), "imagick_portable_64", "convert.exe"),
-            # Check for portable directory in parent directory
+            
+            # App directory (for when packaged with InnoSetup)
+            os.path.join(os.path.dirname(sys.executable), "imagick_portable_64", "magick.exe"),
+            os.path.join(os.path.dirname(sys.executable), "imagick_portable_64", "convert.exe"),
+            
+            # Parent directories
             os.path.join(os.path.dirname(os.getcwd()), "imagick_portable_64", "magick.exe"),
             os.path.join(os.path.dirname(os.getcwd()), "imagick_portable_64", "convert.exe"),
-            # Check for other common portable locations
+            
+            # Other common locations
             os.path.join(os.getcwd(), "imagemagick", "magick.exe"),
-            os.path.join(os.getcwd(), "ImageMagick", "magick.exe")
+            os.path.join(os.getcwd(), "ImageMagick", "magick.exe"),
+            os.path.join(os.path.dirname(sys.executable), "imagemagick", "magick.exe"),
+            os.path.join(os.path.dirname(sys.executable), "ImageMagick", "magick.exe")
         ]
+        
+        # Debug log of search paths
+        logging.info(f"Searching for ImageMagick in: {portable_paths}")
         
         # Check if any of the portable paths exist
         for path in portable_paths:
             if os.path.exists(path):
+                logging.info(f"Found ImageMagick at: {path}")
                 return path
                 
         # If no portable installation found, check system path
+        logging.info("No portable ImageMagick found, defaulting to system PATH")
         return "magick"  # Default to assuming it's in the PATH
-    
-    def run_imagemagick(self, cmd):
-        """Run ImageMagick command with proper error handling"""
-        try:
-            # Find ImageMagick executable
-            imagick_path = self.find_imagick()
+
+    def find_ghostscript(self):
+        """Find the GhostScript executable path"""
+        # Check for portable installation first
+        portable_paths = [
+            # Current directory
+            os.path.join(os.getcwd(), "gs_portable_64", "bin", "gswin64c.exe"),
+            os.path.join(os.getcwd(), "gs_portable_64", "gswin64c.exe"),
             
-            # Replace 'magick' with the full path if a portable version was found
-            if imagick_path != "magick":
-                # Replace the first occurrence of 'magick' with the full path
-                cmd = cmd.replace("magick", f'"{imagick_path}"', 1)
+            # App directory (for when packaged with InnoSetup)
+            os.path.join(os.path.dirname(sys.executable), "gs_portable_64", "bin", "gswin64c.exe"),
+            os.path.join(os.path.dirname(sys.executable), "gs_portable_64", "gswin64c.exe"),
+            
+            # Parent directories
+            os.path.join(os.path.dirname(os.getcwd()), "gs_portable_64", "bin", "gswin64c.exe"),
+            os.path.join(os.path.dirname(os.getcwd()), "gs_portable_64", "gswin64c.exe"),
+            
+            # Other common locations
+            os.path.join(os.getcwd(), "ghostscript", "bin", "gswin64c.exe"),
+            os.path.join(os.path.dirname(sys.executable), "ghostscript", "bin", "gswin64c.exe")
+        ]
+        
+        # Debug log of search paths
+        logging.info(f"Searching for GhostScript in: {portable_paths}")
+        
+        # Check if any of the portable paths exist
+        for path in portable_paths:
+            if os.path.exists(path):
+                logging.info(f"Found GhostScript at: {path}")
+                return path
+                
+        # If no portable installation found, check system path
+        logging.info("No portable GhostScript found, defaulting to system PATH")
+        return "gswin64c"  # Default to assuming it's in the PATH
+    
+    def run_ghostscript(self, cmd):
+        """Run GhostScript command with proper error handling"""
+        try:
+            # Find GhostScript executable
+            gs_path = self.find_ghostscript()
+            
+            # Replace 'gswin64c' with the full path if a portable version was found
+            if gs_path != "gswin64c":
+                # Replace the first occurrence of 'gswin64c' with the full path
+                cmd = cmd.replace("gswin64c", f'"{gs_path}"', 1)
             
             # Log the command being executed
-            logging.info(f"Executing ImageMagick command: {cmd}")
+            logging.info(f"Executing GhostScript command: {cmd}")
             
             # Run the command with stdout and stderr capture
             result = subprocess.run(cmd, shell=True, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
             return result
         except subprocess.CalledProcessError as e:
-            error_message = f"ImageMagick command failed: {e.stderr}"
+            error_message = f"GhostScript command failed: {e.stderr}"
             logging.error(error_message)
-            raise Exception(f"ImageMagick error: {e.stderr}")
+            
+            # Check for common "command not found" errors in different languages
+            if "not recognized" in str(e.stderr) or "n'est pas reconnu" in str(e.stderr):
+                # Create a more helpful error message
+                error_dir = os.path.join(os.path.dirname(sys.executable), "gs_portable_64")
+                raise Exception(f"GhostScript not found. Please ensure that the 'gs_portable_64' folder is in the same directory as the application. Expected location: {error_dir}")
+            else:
+                raise Exception(f"GhostScript error: {e.stderr}")
         except Exception as e:
-            logging.error(f"Error running ImageMagick: {str(e)}")
+            logging.error(f"Error running GhostScript: {str(e)}")
             raise
-
-    def count_pages(self, pdf_file):
-        """Count the number of pages in a PDF file using ImageMagick"""
-        try:
-            cmd = f'magick identify "{pdf_file}"'
-            result = self.run_imagemagick(cmd)
-            
-            # Count the number of pages
-            return len(result.stdout.strip().split('\n'))
-        except Exception as e:
-            print(f"Error counting pages: {e}")
-            return 0
-
-    def update_merge_summary(self):
-        """Update the merge summary display"""
-        count = self.pdf_listbox.count()
-        if count == 0:
-            self.merge_summary.setText("No PDF files selected yet")
-            self.btn_merge_pdfs.setEnabled(False)
-        elif count == 1:
-            self.merge_summary.setText("1 PDF file selected. Add at least one more file to merge.")
-            self.btn_merge_pdfs.setEnabled(False)
-        else:
-            self.merge_summary.setText(f"{count} PDF files ready to merge")
-            self.btn_merge_pdfs.setEnabled(True)
-    
-    def add_pdf(self):
-        """Add a PDF to the merge list"""
-        files, _ = QFileDialog.getOpenFileNames(
-            self,
-            "Select PDF Files",
-            "",
-            "PDF Files (*.pdf)"
-        )
-        
-        if files:
-            for file in files:
-                self.pdf_listbox.addItem(file)
-            
-            self.update_merge_summary()
-    
-    def remove_pdf(self):
-        """Remove the selected PDF from the merge list"""
-        current_row = self.pdf_listbox.currentRow()
-        if current_row >= 0:
-            self.pdf_listbox.takeItem(current_row)
-            self.update_merge_summary()
-            self.status_label.setText(f"Removed PDF from merge list")
-
-    def move_pdf_up(self):
-        """Move the selected PDF up in the list"""
-        current_row = self.pdf_listbox.currentRow()
-        if current_row > 0:
-            item = self.pdf_listbox.takeItem(current_row)
-            self.pdf_listbox.insertItem(current_row - 1, item)
-            self.pdf_listbox.setCurrentRow(current_row - 1)
-            self.status_label.setText("Moved PDF up in the list")
-    
-    def move_pdf_down(self):
-        """Move the selected PDF down in the list"""
-        current_row = self.pdf_listbox.currentRow()
-        if current_row >= 0 and current_row < self.pdf_listbox.count() - 1:
-            item = self.pdf_listbox.takeItem(current_row)
-            self.pdf_listbox.insertItem(current_row + 1, item)
-            self.pdf_listbox.setCurrentRow(current_row + 1)
-            self.status_label.setText("Moved PDF down in the list")
 
     def merge_pdfs(self):
         """Merge PDFs in the list"""
@@ -2347,10 +2216,25 @@ class ImageToPdfConverter(QMainWindow):
                 for i in range(self.pdf_listbox.count()):
                     pdf_files.append(self.pdf_listbox.item(i).text())
                 
-                # Use ImageMagick to merge PDFs with high quality settings
-                pdf_files_quoted = [f'"{pdf_file}"' for pdf_file in pdf_files]
-                cmd = f'magick -density 300 -quality 100 {" ".join(pdf_files_quoted)} -compress lossless "{output_pdf}"'
-                self.run_imagemagick(cmd)
+                # Try to use ImageMagick first
+                try:
+                    # Use ImageMagick to merge PDFs with high quality settings
+                    pdf_files_quoted = [f'"{pdf_file}"' for pdf_file in pdf_files]
+                    cmd = f'magick -density 300 -quality 100 {" ".join(pdf_files_quoted)} -compress lossless "{output_pdf}"'
+                    self.run_imagemagick(cmd)
+                except Exception as e:
+                    logging.warning(f"ImageMagick merge failed, trying GhostScript: {str(e)}")
+                    
+                    # If ImageMagick fails, use GhostScript instead
+                    # Prepare GhostScript command to merge PDFs
+                    pdf_files_str = ' '.join([f'"{pdf}"' for pdf in pdf_files])
+                    
+                    # Add bookmarks if requested
+                    bookmark_option = '-dDOPDFMARKS' if self.chk_add_bookmarks.isChecked() else ''
+                    
+                    # Construct the GhostScript command
+                    cmd = f'gswin64c -dNOPAUSE -dBATCH -sDEVICE=pdfwrite -dPDFSETTINGS=/prepress {bookmark_option} -sOutputFile="{output_pdf}" {pdf_files_str}'
+                    self.run_ghostscript(cmd)
                 
                 self.progress_bar.setValue(100)
                 QMessageBox.information(self, "Success", f"PDFs have been merged into:\n{output_pdf}")
@@ -2386,568 +2270,8 @@ class ImageToPdfConverter(QMainWindow):
                 QMessageBox.critical(self, "Error", f"Error merging PDFs: {str(e)}\nSee error.log for details.")
                 self.progress_bar.setValue(0)
 
-    def setup_split_tab(self):
-        """Setup the Split PDF Tab"""
-        
-        # Header label
-        self.split_header = QLabel("Split PDF")
-        self.split_header.setObjectName("split_header")
-        self.split_header.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.split_tab_layout.addWidget(self.split_header)
-        
-        # Description
-        desc = QLabel("Extract pages from your PDF files")
-        desc.setStyleSheet("font-size: 10pt; color: #424242; margin-bottom: 5px;")
-        desc.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.split_tab_layout.addWidget(desc)
-        
-        # Main content with panels
-        content_layout = QHBoxLayout()
-        content_layout.setSpacing(10)  # Reduce spacing between panels
-        
-        # Left panel - PDF selection and preview
-        left_panel = QFrame()
-        left_panel.setFrameStyle(QFrame.Shape.Box | QFrame.Shadow.Plain)
-        left_panel.setStyleSheet("background-color: white; border-radius: 6px; border: 1px solid #e0e0e0; padding: 8px;")
-        left_layout = QVBoxLayout(left_panel)
-        left_layout.setContentsMargins(8, 8, 8, 8)  # Reduce margins
-        left_layout.setSpacing(5)  # Reduce spacing
-        
-        # Left panel header
-        left_header = QLabel("Select PDF")
-        left_header.setStyleSheet("font-weight: bold; font-size: 11pt; color: #1e88e5; margin-bottom: 5px;")
-        left_layout.addWidget(left_header)
-        
-        # PDF selection area with better styling
-        pdf_selection = QHBoxLayout()
-        pdf_selection.setSpacing(5)
-        
-        # File selection label and button
-        self.split_pdf_path = QLabel("No PDF selected")
-        self.split_pdf_path.setStyleSheet("""
-            background-color: #f5f5f7; 
-            padding: 5px; 
-            border: 1px solid #bbbbbb; 
-            border-radius: 4px;
-            color: #555555;
-            font-size: 9pt;
-        """)
-        self.split_pdf_path.setMinimumWidth(150)  # Reduce width
-        self.split_pdf_path.setWordWrap(True)
-        pdf_selection.addWidget(self.split_pdf_path, 1)
-        
-        self.btn_select_pdf_to_split = QPushButton("Select PDF")
-        self.btn_select_pdf_to_split.setObjectName("btn_select_pdf_to_split")
-        self.btn_select_pdf_to_split.clicked.connect(self.select_pdf_to_split)
-        self.btn_select_pdf_to_split.setStyleSheet("color: white; background-color: #2196f3; font-weight: bold;")
-        self.btn_select_pdf_to_split.setFixedHeight(28)  # Smaller height
-        self.btn_select_pdf_to_split.setMinimumWidth(80)  # Reduce width
-        pdf_selection.addWidget(self.btn_select_pdf_to_split)
-        
-        left_layout.addLayout(pdf_selection)
-        
-        # PDF info with better styling
-        self.split_pdf_info = QLabel("PDF Information: No PDF selected")
-        self.split_pdf_info.setStyleSheet("""
-            background-color: #e3f2fd; 
-            padding: 8px; 
-            border-radius: 4px; 
-            margin: 5px 0; 
-            color: #1565c0;
-            font-size: 9pt;
-        """)
-        self.split_pdf_info.setMinimumHeight(60)  # Reduce height
-        self.split_pdf_info.setWordWrap(True)
-        left_layout.addWidget(self.split_pdf_info)
-        
-        # PDF preview placeholder (future enhancement)
-        preview_frame = QFrame()
-        preview_frame.setStyleSheet("background-color: #f5f5f7; border-radius: 4px; padding: 5px;")
-        preview_frame.setMinimumHeight(100)  # Reduce height
-        preview_layout = QVBoxLayout(preview_frame)
-        preview_layout.setContentsMargins(5, 5, 5, 5)  # Reduce margins
-        preview_layout.setSpacing(3)  # Reduce spacing
-        
-        preview_header = QLabel("Preview")
-        preview_header.setStyleSheet("font-weight: bold; color: #424242;")
-        preview_layout.addWidget(preview_header)
-        
-        preview_text = QLabel("PDF preview will be shown in future versions")
-        preview_text.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        preview_text.setStyleSheet("color: #757575; font-style: italic; font-size: 9pt;")
-        preview_layout.addWidget(preview_text)
-        
-        left_layout.addWidget(preview_frame)
-        
-        # Add stretch to push everything up
-        left_layout.addStretch()
-        
-        # Right panel - Extraction options
-        right_panel = QFrame()
-        right_panel.setFrameStyle(QFrame.Shape.Box | QFrame.Shadow.Plain)
-        right_panel.setStyleSheet("background-color: white; border-radius: 6px; border: 1px solid #e0e0e0; padding: 8px;")
-        right_layout = QVBoxLayout(right_panel)
-        right_layout.setContentsMargins(8, 8, 8, 8)  # Reduce margins
-        right_layout.setSpacing(5)  # Reduce spacing
-        
-        # Right panel header
-        right_header = QLabel("Extraction Options")
-        right_header.setStyleSheet("font-weight: bold; font-size: 11pt; color: #1e88e5; padding:0px; margin-bottom: 5px;")
-        right_layout.addWidget(right_header)
-        
-        # Page range section with better styling
-        page_range_group = QFrame()
-        page_range_group.setStyleSheet("background-color: #f5f5f7; border-radius: 4px; padding: 2px;")
-        page_range_layout = QVBoxLayout(page_range_group)
-        page_range_layout.setContentsMargins(5, 5, 5, 5)  # Reduce margins
-        page_range_layout.setSpacing(3)  # Reduce spacing
-        
-        page_range_header = QLabel("Page Range")
-        page_range_header.setStyleSheet("font-weight: bold; color: #424242;")
-        page_range_layout.addWidget(page_range_header)
-        
-        # Instructions with better formatting
-        instructions = QLabel("Specify pages to extract:")
-        instructions.setStyleSheet("color: #424242; margin-top: 3px;padding:0px; font-size: 9pt;")
-        instructions.setWordWrap(True)
-        page_range_layout.addWidget(instructions)
-        
-        # Instructions list - more compact
-        instructions_list = QFrame()
-        instructions_list.setStyleSheet("background-color: #eeeeee; border-radius: 4px; padding: 0px; margin: 3px 0;")
-        instructions_list_layout = QVBoxLayout(instructions_list)
-        instructions_list_layout.setContentsMargins(3, 3, 3, 3)  # Reduce margins
-        instructions_list_layout.setSpacing(1)  # Reduce spacing
-        
-        format_examples = ["• Single: 1,3,5", "• Range: 1-5", "• Mixed: 1-3,5,7-9"]
-        
-        # Create a single label with all examples on one line
-        combined_examples = "   ".join(format_examples)
-        examples_label = QLabel(combined_examples)
-        examples_label.setStyleSheet("color: #424242; font-size: 9pt;")
-        instructions_list_layout.addWidget(examples_label)
-        
-        page_range_layout.addWidget(instructions_list)
-        
-        # Page range input with better styling
-        range_input_layout = QHBoxLayout()
-        range_input_layout.setSpacing(5)
-        
-        range_label = QLabel("Enter Range:")
-        range_label.setStyleSheet("font-weight: bold; font-size: 9pt;")
-        range_input_layout.addWidget(range_label)
-        
-        self.page_range_input = QLineEdit()
-        self.page_range_input.setPlaceholderText("e.g., 1-3,5,7-9")
-        self.page_range_input.setStyleSheet("""
-            QLineEdit {
-                border: 1px solid #bbbbbb;
-                border-radius: 3px;
-                padding: 3px;
-                background-color: white;
-            }
-            QLineEdit:focus {
-                border: 1px solid #2196f3;
-            }
-        """)
-        range_input_layout.addWidget(self.page_range_input, 1)
-        
-        page_range_layout.addLayout(range_input_layout)
-        
-        # Quick selection buttons with better styling
-        quick_buttons_label = QLabel("Quick Selection:")
-        quick_buttons_label.setStyleSheet("font-weight: bold; margin-top: 3px; font-size: 9pt;")
-        page_range_layout.addWidget(quick_buttons_label)
-        
-        quick_buttons = QHBoxLayout()
-        quick_buttons.setSpacing(5)
-        
-        all_pages_btn = QPushButton("All")
-        all_pages_btn.clicked.connect(lambda: self.set_page_range("all"))
-        all_pages_btn.setStyleSheet("""
-            background-color: #03a9f4; 
-            color: white; 
-            font-weight: bold;
-            border-radius: 3px;
-            padding: 3px;
-            font-size: 9pt;
-        """)
-        all_pages_btn.setFixedHeight(24)  # Smaller height
-        quick_buttons.addWidget(all_pages_btn)
-        
-        even_pages_btn = QPushButton("Even")
-        even_pages_btn.clicked.connect(lambda: self.set_page_range("even"))
-        even_pages_btn.setStyleSheet("""
-            background-color: #03a9f4; 
-            color: white; 
-            font-weight: bold;
-            border-radius: 3px;
-            padding: 3px;
-            font-size: 9pt;
-        """)
-        even_pages_btn.setFixedHeight(24)  # Smaller height
-        quick_buttons.addWidget(even_pages_btn)
-        
-        odd_pages_btn = QPushButton("Odd")
-        odd_pages_btn.clicked.connect(lambda: self.set_page_range("odd"))
-        odd_pages_btn.setStyleSheet("""
-            background-color: #03a9f4; 
-            color: white; 
-            font-weight: bold;
-            border-radius: 3px;
-            padding: 3px;
-            font-size: 9pt;
-        """)
-        odd_pages_btn.setFixedHeight(24)  # Smaller height
-        quick_buttons.addWidget(odd_pages_btn)
-        
-        page_range_layout.addLayout(quick_buttons)
-        
-        right_layout.addWidget(page_range_group)
-        
-        # Output options with better styling
-        output_group = QFrame()
-        output_group.setStyleSheet("background-color: #f5f5f7; border-radius: 4px; padding: 2px; margin-top: 5px;")
-        output_layout = QVBoxLayout(output_group)
-        output_layout.setContentsMargins(5, 5, 5, 5)  # Reduce margins
-        output_layout.setSpacing(3)  # Reduce spacing
-        
-        output_header = QLabel("Output Options")
-        output_header.setStyleSheet("font-weight: bold; padding:0px; color: #424242;")
-        output_layout.addWidget(output_header)
-        
-        # Output radio buttons with better styling
-        self.single_output_file = QRadioButton("Extract to a single PDF file")
-        self.single_output_file.setChecked(True)
-        self.single_output_file.setStyleSheet("margin-top: 3px; font-size: 9pt;")
-        output_layout.addWidget(self.single_output_file)
-        
-        self.multiple_output_files = QRadioButton("Extract each page to a separate PDF")
-        self.multiple_output_files.setStyleSheet("margin-top: 3px; font-size: 9pt;")
-        output_layout.addWidget(self.multiple_output_files)
-        
-        right_layout.addWidget(output_group)
-        
-        # Extract button with better styling
-        self.btn_extract_pages = QPushButton("Extract Pages")
-        self.btn_extract_pages.setObjectName("btn_extract_pages")
-        self.btn_extract_pages.clicked.connect(self.extract_pages)
-        self.btn_extract_pages.setFixedHeight(40)  # Smaller height
-        self.btn_extract_pages.setStyleSheet("""
-            QPushButton {
-                color: white; 
-                background-color: #4caf50; 
-                font-weight: bold; 
-                font-size: 11pt;
-                border-radius: 4px;
-            }
-            QPushButton:hover {
-                background-color: #388e3c;
-            }
-            QPushButton:pressed {
-                background-color: #2e7d32;
-            }
-            QPushButton:disabled {
-                background-color: #bdbdbd;
-                color: #757575;
-            }
-        """)
-        self.btn_extract_pages.setEnabled(False)
-        right_layout.addWidget(self.btn_extract_pages)
-        
-        # Help tip - more compact 
-        help_tip = QLabel("Page numbers start at 1. Page '2' will extract the second page.")
-        help_tip.setStyleSheet("background-color: #fff3e0; color: #e65100; padding: 5px; border-radius: 4px; margin-top: 5px; font-size: 9pt;")
-        help_tip.setWordWrap(True)
-        right_layout.addWidget(help_tip)
-        
-        # Add stretch to push everything up
-        right_layout.addStretch()
-        
-        # Add panels to content layout
-        content_layout.addWidget(left_panel, 1)
-        content_layout.addWidget(right_panel, 1)
-        
-        # Add content layout to tab
-        self.split_tab_layout.addLayout(content_layout)
-        
-        # Add bottom stretch to push everything up
-        self.split_tab_layout.addStretch()
-    
-    def select_pdf_to_split(self):
-        """Select a PDF file to split"""
-        pdf_file, _ = QFileDialog.getOpenFileName(
-            self,
-            "Select PDF to Split",
-            "",
-            "PDF Files (*.pdf)"
-        )
-        
-        if pdf_file and os.path.exists(pdf_file):
-            self.split_pdf_path.setText(pdf_file)
-            self.btn_extract_pages.setEnabled(True)
-            
-            # Get page count using ImageMagick
-            try:
-                cmd = f'magick identify "{pdf_file}"'
-                result = self.run_imagemagick(cmd)
-                
-                # Count the occurrences of PDF pages in the output
-                page_count = result.stdout.count(".pdf[")
-                
-                # Update info text
-                file_size = os.path.getsize(pdf_file) / 1024  # KB
-                if file_size > 1024:
-                    file_size = file_size / 1024  # MB
-                    size_str = f"{file_size:.2f} MB"
-                else:
-                    size_str = f"{file_size:.2f} KB"
-                
-                self.split_pdf_info.setText(f"PDF Information: {os.path.basename(pdf_file)}\nPages: {page_count}\nSize: {size_str}")
-            except Exception as e:
-                logging.error(f"Error getting PDF page count: {str(e)}")
-                QMessageBox.critical(self, "Error", f"Error determining PDF page count: {str(e)}")
-    
-    def set_page_range(self, range_type):
-        """Set page range selection based on quick options"""
-        if range_type == "all":
-            self.page_range_input.setText("all")
-        elif range_type == "even":
-            self.page_range_input.setText("even")
-        elif range_type == "odd":
-            self.page_range_input.setText("odd")
-
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     window = ImageToPdfConverter()
     window.show()
     sys.exit(app.exec())
-    app = QApplication(sys.argv)
-    window = ImageToPdfConverter()
-    window.show()
-    sys.exit(app.exec())
-    app = QApplication(sys.argv)
-    window = ImageToPdfConverter()
-    window.show()
-    sys.exit(app.exec())
-    def __init__(self):
-        super().__init__()
-        self.setWindowTitle("PDF Manager | by mohammedhank91")
-        self.setGeometry(100, 100, 900, 650)  # Slightly smaller default size
-        
-        # Explicitly set window to be resizable
-        self.setWindowFlags(self.windowFlags() & ~Qt.WindowType.WindowMaximizeButtonHint)
-        self.setWindowFlags(self.windowFlags() | Qt.WindowType.WindowMaximizeButtonHint)
-        self.setMinimumSize(840, 680)  # Set reasonable minimum window size
-        
-        # Set the base path using the simplified approach
-        self.base_path = get_base_path()
-        
-        # Configure ImageMagick path - first check for portable installation
-        self.imagick_path = self.find_imagick()
-        
-        # Set application icon - try multiple potential locations
-        icon_found = False
-        icon_paths = [
-            os.path.join(self.base_path, 'resources', 'manage_pdf.ico'),  # Icon in resources subdirectory
-            os.path.join(self.base_path, 'manage_pdf.ico'),  # Icon in base directory
-            os.path.join(os.path.dirname(self.base_path), 'resources', 'manage_pdf.ico'),  # Icon in parent resources
-            os.path.join(os.path.dirname(self.base_path), 'manage_pdf.ico'),  # Icon in parent directory
-            os.path.abspath('manage_pdf.ico'),  # Icon in current working directory
-        ]
-        
-        for icon_path in icon_paths:
-            if os.path.exists(icon_path):
-                self.setWindowIcon(QIcon(icon_path))
-                icon_found = True
-                print(f"Icon loaded from: {icon_path}")
-                break
-                
-        if not icon_found:
-            print("Warning: Application icon could not be found at any of these locations:")
-            for path in icon_paths:
-                print(f"  - {path}")
-        
-        # call to setupdragdrop
-        self.setupDragDrop()
-        
-        # Apply modern styling
-        self.apply_modern_style()
-        
-        # Global variables
-        self.zoom_factor = 1.0
-        self.latest_pdf = None
-        self.selected_files = []
-        self.rotations = {}  # Key: index, Value: rotation angle (0,90,180,270)
-        self.current_index = 0
-        
-        # Setup logging
-        logging.basicConfig(filename="error.log", level=logging.ERROR, 
-                           format='%(asctime)s : %(message)s', 
-                           datefmt='%Y-%m-%d %H:%M:%S')
-        
-        # Create central widget and tab layout
-        self.central_widget = QWidget()
-        self.setCentralWidget(self.central_widget)
-        self.main_layout = QVBoxLayout(self.central_widget)
-        
-        # Create tab widget
-        self.tab_widget = QTabWidget()
-        self.tab_widget.setDocumentMode(True)
-        
-        # Create tabs
-        self.main_tab = QWidget()
-        self.convert_tab = QWidget()
-        self.tools_tab = QWidget()
-        self.merge_tab = QWidget()
-        self.split_tab = QWidget()
-        
-        # Add tabs to widget
-        self.tab_widget.addTab(self.main_tab, "Main")
-        self.tab_widget.addTab(self.convert_tab, "Convert")
-        self.tab_widget.addTab(self.tools_tab, "Compress PDF")
-        self.tab_widget.addTab(self.merge_tab, "Merge PDFs")
-        self.tab_widget.addTab(self.split_tab, "Split PDF")
-        
-        # Add tab widget to main layout
-        self.main_layout.addWidget(self.tab_widget)
-        
-        # Create layouts for each tab
-        self.main_tab_layout = QVBoxLayout(self.main_tab)
-        self.convert_tab_layout = QVBoxLayout(self.convert_tab)
-        self.tools_tab_layout = QVBoxLayout(self.tools_tab)
-        self.merge_tab_layout = QVBoxLayout(self.merge_tab)
-        self.split_tab_layout = QVBoxLayout(self.split_tab)
-        
-        # Status bar at the bottom of main window (visible across all tabs)
-        self.status_layout = QVBoxLayout()
-        
-        # Status label
-        self.status_label = QLabel("")
-        self.status_label.setObjectName("statusLabel")
-        self.status_layout.addWidget(self.status_label)
-        
-        # Progress bar
-        self.progress_bar = QProgressBar()
-        self.progress_bar.setTextVisible(True)
-        self.progress_bar.setObjectName("progressBar")
-        self.status_layout.addWidget(self.progress_bar)
-        
-        # Add status layout to main layout
-        self.main_layout.addLayout(self.status_layout)
-        
-        # Set up each tab with widgets
-        self.setup_main_tab()
-        self.setup_convert_tab()
-        self.setup_tools_tab()
-        self.setup_merge_tab()
-        self.setup_split_tab()
-        
-        # Add developer credit
-        self.add_developer_credit()
-    
-    def apply_modern_style(self):
-        """Apply a modern style to the entire application"""
-        # Main style for the app
-        self.setStyleSheet("""
-            QMainWindow, QWidget {
-                background-color: #f5f5f7;
-                color: #333333;
-                font-family: 'Segoe UI', Arial, sans-serif;
-                font-size: 9pt;
-            }
-            
-            QTabWidget::pane {
-                border: 1px solid #cccccc;
-                border-radius: 8px;
-                background-color: white;
-                padding: 6px;
-            }
-            
-            QTabBar::tab {
-                background-color: #e0e0e5;
-                color: #505050;
-                border: 1px solid #c0c0c0;
-                border-bottom: none;
-                padding: 6px 12px;
-                border-top-left-radius: 6px;
-                border-top-right-radius: 6px;
-                min-width: 80px;
-                font-weight: bold;
-                font-size: 9pt;
-            }
-            
-            QTabBar::tab:selected {
-                background-color: white;
-                color: #1e88e5;
-                border-bottom: none;
-            }
-            
-            QTabBar::tab:hover:!selected {
-                background-color: #efefef;
-                color: #1976d2;
-                border-color: #aaaaaa;
-            }
-            
-            QPushButton {
-                background-color: #2196f3;
-                color: white;
-                border: none;
-                border-radius: 3px;
-                padding: 4px 10px;
-                font-weight: bold;
-            }
-            
-            QPushButton:hover {
-                background-color: #1976d2;
-            }
-            
-            QPushButton:disabled {
-                background-color: #b0bec5;
-                color: #e0e0e0;
-            }
-            
-            QLineEdit, QComboBox, QSpinBox {
-                border: 1px solid #b0bec5;
-                border-radius: 3px;
-                padding: 3px;
-                background-color: white;
-            }
-            
-            QLineEdit:focus, QComboBox:focus, QSpinBox:focus {
-                border: 1px solid #2196f3;
-            }
-            
-            QProgressBar {
-                border: 1px solid #b0bec5;
-                border-radius: 3px;
-                background-color: #e0e0e0;
-            }
-            
-            QProgressBar::chunk {
-                background-color: #2196f3;
-            }
-            
-            /* Special tab styling */
-            #statusLabel {
-                color: #455a64;
-                font-size: 9pt;
-                margin-top: 5px;
-            }
-            
-            /* List widget styling */
-            QListWidget {
-                border: 1px solid #b0bec5;
-                border-radius: 3px;
-                background-color: white;
-            }
-            
-            QListWidget::item {
-                padding: 3px;
-            }
-            
-            QListWidget::item:selected {
-                background-color: #bbdefb;
-                color: #0d47a1;
-            }
-        """) 

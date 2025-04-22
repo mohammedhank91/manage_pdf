@@ -21,11 +21,15 @@ manage_pdf/
 │   ├── manage_pdf_qt5.py       # PyQt5 version for compatibility
 │   └── manage_pdf_old.py       # Original script version
 ├── build_tools/                # Build scripts
-│   ├── setup.py                # cx_Freeze build configuration
 │   ├── requirements.txt        # Python dependencies
-│   ├── PDFManager_Setup.iss    # Inno Setup script for installer
-│   ├── PDFManager_Dual_Setup.iss # Dual version installer script
+│   ├── PDFManager_PyInstaller_Setup.iss # InnoSetup installer script
+│   ├── build_with_pyinstaller.py # PyInstaller build script
 │   └── managepdf.ps1           # PowerShell automation script
+├── dist/                       # PyInstaller build output
+│   └── PDFManager/             # Standalone executable and resources
+├── installer_64/               # Generated installers
+├── imagick_portable_64/        # Optional portable ImageMagick (64-bit)
+├── ghostscript_portable/       # Optional portable Ghostscript
 ├── temp/                       # Temporary files
 └── README.md                   # This file
 ```
@@ -43,7 +47,7 @@ The project contains three different implementations:
 - Python 3.6 or higher
 - PyQt6 (preferred) or PyQt5
 - Pillow (PIL)
-- cx_Freeze (for building executables)
+- PyPDF2
 - ImageMagick (for some advanced image operations)
 
 ## Running the Application
@@ -61,35 +65,37 @@ python src/manage_pdf_qt5.py
 python src/manage_pdf_old.py
 ```
 
-## Building Executables
+## Building and Distributing
 
-### Python Executable
-Use the setup.py script in the build_tools directory to create standalone executables:
+### Building with PyInstaller
+
+PyInstaller creates a compact and reliable executable:
 
 ```bash
-# Build PyQt6 version (64-bit, for Windows 10/11)
-python build_tools/setup.py --pyqt6
-
-# Build PyQt5 version (32-bit, for Windows 7)
-python build_tools/setup.py --pyqt5 --arch=32
-
-# Build all versions
-python build_tools/setup.py --all
+# Run the PyInstaller build script
+python build_tools/build_with_pyinstaller.py
 ```
 
-The executables will be created in the build directory.
+The executable will be created in the `dist/PDFManager` directory.
 
-### Windows Installer
-For creating Windows installers, use the Inno Setup scripts:
+### Creating a Windows Installer
+
+For creating a professional Windows installer:
 
 1. Install [Inno Setup](https://jrsoftware.org/isinfo.php)
-2. Open the appropriate script:
-   - `PDFManager_Setup.iss` - For single version installer
-   - `PDFManager_Dual_Setup.iss` - For dual version installer (PyQt5 & PyQt6)
-3. Compile the script to create the installer
+2. Compile the InnoSetup script:
+   ```
+   "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "build_tools\PDFManager_PyInstaller_Setup.iss"
+   ```
+3. The installer will be created in the `installer_64` directory
 
-### PowerShell Automation
-The project includes a PowerShell script (`managepdf.ps1`) for automating certain tasks. Run it as needed for custom automation workflows.
+### Simple Distribution Method
+
+If you prefer not to create an installer:
+
+1. Copy the entire `dist/PDFManager` directory
+2. Zip the folder
+3. Share the ZIP file with users who can extract and run PDFManager.exe directly
 
 ## ImageMagick Integration
 
@@ -104,3 +110,21 @@ This project is provided as-is for personal use.
 ## Credits
 
 - Developed by mohammedhank91 
+
+## Troubleshooting
+
+### Installation Issues
+- If you encounter unusual folder or shortcut names during installation, make sure you're using the latest version of the installer
+- For optimal performance, install in a path without special characters or spaces
+
+### Runtime Issues
+- **Missing Dependencies**: Make sure ImageMagick and Ghostscript are properly installed if you're using compression features
+- **ImageMagick Not Found**: Place the `imagick_portable_64` folder next to the executable or install ImageMagick system-wide
+- **PDF Processing Errors**: Some PDFs may be protected or corrupted. Try opening and resaving them with another PDF reader first
+
+### Building Issues
+- When building with PyInstaller, make sure all dependencies are installed: `pip install pyinstaller pillow pyqt6 pypdf2`
+- If the built application doesn't find its resources, check that all paths are correctly specified in the build scripts
+
+### Contact and Support
+If you encounter any issues not covered here, please create an issue on the GitHub repository. 
