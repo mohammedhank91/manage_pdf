@@ -56,9 +56,10 @@ Name: "quicklaunchicon"; Description: "Create a Quick&Launch icon"; GroupDescrip
 ; Core application files
 Source: "..\dist\PDFManager\*"; DestDir: "{app}"; Flags: recursesubdirs ignoreversion createallsubdirs; Components: core
 Source: "{#MyAppIcon}"; DestDir: "{app}"; Flags: ignoreversion; Components: core
-; Portable tools (optional)
-Source: "..\imagick_portable_64\*"; DestDir: "{app}\imagick_portable_64"; Flags: recursesubdirs ignoreversion createallsubdirs; Components: tools
-Source: "..\poppler_portable_64\*"; DestDir: "{app}\poppler_portable_64"; Flags: recursesubdirs ignoreversion createallsubdirs; Components: tools
+
+; Portable tools (optional) — take them from your PyInstaller dist tree
+Source: "..\dist\PDFManager\imagick_portable_64\*"; DestDir: "{app}\imagick_portable_64"; Flags: recursesubdirs ignoreversion createallsubdirs; Components: tools
+Source: "..\dist\PDFManager\poppler_portable_64\*";   DestDir: "{app}\poppler_portable_64";   Flags: recursesubdirs ignoreversion createallsubdirs; Components: tools
 
 [Icons]
 Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; IconFilename: "{app}\manage_pdf.ico"; Components: core
