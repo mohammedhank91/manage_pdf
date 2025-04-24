@@ -50,7 +50,7 @@ jobs:
         run: iscc PDFManager_PyInstaller_Setup.iss
 
       - name: Upload installer artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: PDFManager-installer
           path: installer_64/**/*.exe
