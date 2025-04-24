@@ -5,6 +5,20 @@ echo.
 rem Set this to the Python executable path if needed
 set PYTHON=python
 
+echo Checking for required portable dependencies:
+if exist "..\imagick_portable_64" (
+    echo - ImageMagick found in imagick_portable_64
+) else (
+    echo - WARNING: ImageMagick not found in imagick_portable_64
+)
+
+if exist "..\poppler_portable_64" (
+    echo - Poppler found in poppler_portable_64
+) else (
+    echo - WARNING: Poppler not found in poppler_portable_64
+)
+
+echo.
 echo Step 1: Building executable with PyInstaller
 %PYTHON% build_tools/build_with_pyinstaller.py
 if %ERRORLEVEL% NEQ 0 (

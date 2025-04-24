@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """
 Build script for PDF Manager using PyInstaller
-This script will create a standalone executable that includes ImageMagick and Ghostscript
+This script will create a standalone executable that includes ImageMagick and Poppler
 """
 import os
 import sys
@@ -26,21 +26,22 @@ except ImportError:
     print("Installing PyInstaller...")
     subprocess.check_call([sys.executable, "-m", "pip", "install", "pyinstaller"])
 
-# Check for ImageMagick and Ghostscript folders
+# Check for ImageMagick folder
 imagick_dir = Path(project_root) / "imagick_portable_64"
-ghostscript_dir = Path(project_root) / "ghostscript_portable"
+poppler_dir = Path(project_root) / "poppler_portable_64"
 icon_file = Path(project_root) / "src" / "resources" / "manage_pdf.ico"
 
 if not imagick_dir.exists():
     print(f"WARNING: ImageMagick directory not found at {imagick_dir}")
-if not ghostscript_dir.exists():
-    print(f"WARNING: Ghostscript directory not found at {ghostscript_dir}")
+
+if not poppler_dir.exists():
+    print(f"WARNING: Poppler directory not found at {poppler_dir}")
 
 # Run PyInstaller directly without creating a spec file
 print("\nBuilding executable with PyInstaller...")
 
 # Convert Windows paths to use forward slashes to avoid escape issues
-script_path = str(project_root / "src" / "manage_pdf_qt.py").replace("\\", "/")
+script_path = str(project_root / "src" / "pdf_manage.py").replace("\\", "/")
 icon_path = str(icon_file).replace("\\", "/")
 work_path = str(project_root / "build").replace("\\", "/")
 dist_path = str(project_root / "dist").replace("\\", "/")
@@ -59,20 +60,25 @@ pyinstaller_cmd = [
     "--noconfirm",
     "--hidden-import=PIL",
     "--hidden-import=PyPDF2",
+    "--hidden-import=pikepdf",
+    "--hidden-import=pdf2image",
     "--hidden-import=xml",
     "--hidden-import=xml.dom",
     # Exclude the extra Qt binding
     "--exclude-module=PyQt5",
 ]
 
-# Add paths to ImageMagick and Ghostscript as additional data
+# Add path to ImageMagick as additional data
 if imagick_dir.exists():
     dest_im_dir = "imagick_portable_64"
     pyinstaller_cmd.append(f"--add-data={str(imagick_dir).replace('\\', '/')}{os.pathsep}{dest_im_dir}")
+    print(f"Adding ImageMagick from: {imagick_dir}")
 
-if ghostscript_dir.exists():
-    dest_gs_dir = "ghostscript_portable"
-    pyinstaller_cmd.append(f"--add-data={str(ghostscript_dir).replace('\\', '/')}{os.pathsep}{dest_gs_dir}")
+# Add path to Poppler as additional data
+if poppler_dir.exists():
+    dest_poppler_dir = "poppler_portable_64"
+    pyinstaller_cmd.append(f"--add-data={str(poppler_dir).replace('\\', '/')}{os.pathsep}{dest_poppler_dir}")
+    print(f"Adding Poppler from: {poppler_dir}")
 
 # Add the script path at the end
 pyinstaller_cmd.append(script_path)
@@ -86,41 +92,10 @@ try:
     print(f"Executable created at: {project_root}/dist/PDFManager/PDFManager.exe")
     
     # Copy the InnoSetup script for the PyInstaller build
-    original_iss = Path(project_root) / "build_tools" / "PDFManager_Setup.iss"
-    pyinstaller_iss = Path(project_root) / "build_tools" / "PDFManager_PyInstaller_Setup.iss"
+    original_iss = Path(project_root) / "build_tools" / "PDFManager_PyInstaller_Setup.iss"
     
-    with open(original_iss, "r") as original:
-        content = original.read()
-        
-    # Update the content for PyInstaller's output
-    content = content.replace(
-        r'Source: "..\build\exe.win-amd64-3.13\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs',
-        r'Source: "..\dist\PDFManager\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs'
-    )
-    
-    # Remove the explicit ImageMagick and Ghostscript includes since PyInstaller bundles them
-    content = content.replace(
-        r'Source: "..\imagick_portable_64\*"; DestDir: "{app}\imagick_portable_64"; Flags: ignoreversion recursesubdirs createallsubdirs; Check: ImageMagickDirExists',
-        r'; Source: "..\imagick_portable_64\*"; DestDir: "{app}\imagick_portable_64"; Flags: ignoreversion recursesubdirs createallsubdirs; Check: ImageMagickDirExists'
-    )
-    
-    content = content.replace(
-        r'Source: "..\ghostscript_portable\*"; DestDir: "{app}\ghostscript_portable"; Flags: ignoreversion recursesubdirs createallsubdirs; Check: GhostScriptDirExists',
-        r'; Source: "..\ghostscript_portable\*"; DestDir: "{app}\ghostscript_portable"; Flags: ignoreversion recursesubdirs createallsubdirs; Check: GhostScriptDirExists'
-    )
-    
-    # Fix the executable name
-    content = content.replace(
-        '#define MyAppExeName "PDFManager_PyQt6.exe"',
-        '#define MyAppExeName "PDFManager.exe"'
-    )
-    
-    with open(pyinstaller_iss, "w") as new_iss:
-        new_iss.write(content)
-    
-    print(f"\nInnoSetup script created at: {pyinstaller_iss}")
-    print("To create the installer, run:")
-    print(f"iscc \"{pyinstaller_iss}\"")
+    print("\nTo create an installer, run:")
+    print(f"iscc \"{original_iss}\"")
     
 except subprocess.CalledProcessError as e:
     print(f"Error building executable: {e}")

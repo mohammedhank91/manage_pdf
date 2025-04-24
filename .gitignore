@@ -11,4 +11,8 @@ imagick_portable_64/
 /installer_32/
 convert.py
 bfg-1.15.0.jar
-ghostscript_portable/
+/test/
+temp/
+poppler_portable_64/
+src/tabs/__pycache__/
+src/utils/__pycache__/
