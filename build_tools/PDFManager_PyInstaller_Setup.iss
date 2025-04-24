@@ -1,6 +1,4 @@
-; -- Improved Inno Setup Script for PDF Manager 1.0.0
-; - Adds Unicode support, structured sections, multilingual enhancements
-; - Better AppId handling, modern UI style, clear folder selection
+; -- Inno Setup Script for PDF Manager 1.0.0
 
 #define SourceDir        ".."
 #define MyAppName         "PDF Manager"

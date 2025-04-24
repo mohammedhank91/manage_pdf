@@ -29,11 +29,11 @@ jobs:
       - name: Build executable
         run: python build_tools/build_with_pyinstaller.py
 
-      - name: Upload executable artifact
+      - name: Upload build artifact (dist folder)
         uses: actions/upload-artifact@v4
         with:
-          name: PDFManager-executable
-          path: dist/PDFManager/PDFManager.exe
+          name: PDFManager-dist
+          path: dist
 
   installer:
     runs-on: windows-latest
@@ -41,6 +41,12 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
+
+      - name: Download build artifact (dist folder)
+        uses: actions/download-artifact@v3
+        with:
+          name: PDFManager-dist
+          path: .
 
       - name: Install Inno Setup
         run: choco install innosetup -y --no-progress
