@@ -31,26 +31,20 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Install ImageMagick Portable
-        run: choco install imagemagick.portable -y --no-progress
-
-      - name: Copy ImageMagick to project root
+      - name: Download ImageMagick Portable
         shell: pwsh
         run: |
-          $src = Join-Path $Env:ProgramData 'chocolatey\lib\imagemagick.portable\tools\ImageMagick-*'
-          Copy-Item -Path $src -Destination imagick_portable_64 -Recurse -Force
+          Invoke-WebRequest -Uri "https://imagemagick.org/archive/binaries/ImageMagick-7.1.1-47-portable-Q16-x64.zip" -OutFile "imagemagick.zip"
+          Expand-Archive -Path "imagemagick.zip" -DestinationPath "imagick_portable_64" -Force
+          Get-ChildItem -Path "imagick_portable_64" -Recurse | Select-Object -First 10
 
-      - name: Install Poppler
-        run: choco install poppler -y --no-progress
-
-      - name: Copy Poppler to project root
+      - name: Download Poppler
         shell: pwsh
         run: |
-          $src = Join-Path $Env:ProgramData 'chocolatey\lib\poppler\tools\poppler-*'
-          Copy-Item -Path $src -Destination poppler_portable_64 -Recurse -Force
-
-      - name: Install PyInstaller
-        run: pip install pyinstaller
+          Invoke-WebRequest -Uri "https://github.com/oschwartz10612/poppler-windows/releases/download/v24.02.0-0/Release-24.02.0-0.zip" -OutFile "poppler.zip"
+          New-Item -Path "poppler_portable_64" -ItemType Directory -Force
+          Expand-Archive -Path "poppler.zip" -DestinationPath "poppler_portable_64" -Force
+          Get-ChildItem -Path "poppler_portable_64" -Recurse | Select-Object -First 10
 
       - name: Build executable
         run: python build_tools/build_with_pyinstaller.py
