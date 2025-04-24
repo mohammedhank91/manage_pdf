@@ -1,131 +1,56 @@
-name: Build Windows Installer
+name: Build and Package PDFManager
 
 on:
   push:
     branches: [ main ]
-  workflow_dispatch:
+  pull_request:
+    branches: [ main ]
 
 jobs:
   build:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v3
-      
-      - name: Set up Python
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Setup Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.10'
-      
+          python-version: '3.13'
+
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-      
-      - name: Download ImageMagick Portable
-        run: |
-          Invoke-WebRequest -Uri "https://imagemagick.org/archive/binaries/ImageMagick-7.1.1-47-portable-Q16-x64.zip" -OutFile "imagemagick.zip"
-          Expand-Archive -Path "imagemagick.zip" -DestinationPath "imagick_portable_64" -Force
-          Get-ChildItem -Path "imagick_portable_64" -Recurse | Select-Object -First 10
-      
-      - name: Download Poppler
-        run: |
-          Invoke-WebRequest -Uri "https://github.com/oschwartz10612/poppler-windows/releases/download/v24.02.0-0/Release-24.02.0-0.zip" -OutFile "poppler.zip"
-          New-Item -Path "poppler_portable_64" -ItemType Directory -Force
-          Expand-Archive -Path "poppler.zip" -DestinationPath "poppler_portable_64" -Force
-          Get-ChildItem -Path "poppler_portable_64" -Recurse | Select-Object -First 10
-      
-      - name: Download InnoSetup
-        run: |
-          Invoke-WebRequest -Uri "https://jrsoftware.org/download.php/is.exe" -OutFile "is.exe"
-          Start-Process -FilePath ".\is.exe" -ArgumentList "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP-" -Wait
-      
-      - name: Create directories
-        run: |
-          New-Item -Path "dist" -ItemType Directory -Force
-          New-Item -Path "build" -ItemType Directory -Force
-          New-Item -Path "installer_64" -ItemType Directory -Force
-          New-Item -Path "temp" -ItemType Directory -Force
-      
-      - name: Create LICENSE file if missing
-        run: |
-          if (-not (Test-Path -Path "LICENSE.txt")) {
-            $license = "MIT License`n`nCopyright (c) 2024 PDF Manager`n`nPermission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the ""Software""), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:`n`nThe above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.`n`nTHE SOFTWARE IS PROVIDED ""AS IS"", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE."
-            Set-Content -Path "LICENSE.txt" -Value $license -Encoding UTF8
-          }
-      
-      - name: Build with PyInstaller
-        run: |
-          # Run PyInstaller directly
-          $scriptPath = Join-Path -Path (Get-Location) -ChildPath "src\pdf_manage.py"
-          $iconPath = Join-Path -Path (Get-Location) -ChildPath "src\resources\manage_pdf.ico"
-          $imagickDir = Join-Path -Path (Get-Location) -ChildPath "imagick_portable_64"
-          $popplerDir = Join-Path -Path (Get-Location) -ChildPath "poppler_portable_64"
-          
-          Write-Host "Building executable with PyInstaller..."
-          Write-Host "Script path: $scriptPath"
-          Write-Host "Icon path: $iconPath"
-          
-          # Create PyInstaller command
-          $pyinstallerCmd = @(
-            "--name=PDFManager",
-            "--clean",
-            "--windowed",
-            "--icon=$iconPath",
-            "--noconfirm",
-            "--onedir",
-            "--hidden-import=PyQt6",
-            "--hidden-import=PyQt6.QtCore",
-            "--hidden-import=PyQt6.QtGui",
-            "--hidden-import=PyQt6.QtWidgets",
-            "--hidden-import=PIL",
-            "--hidden-import=PyPDF2",
-            "--hidden-import=pikepdf",
-            "--hidden-import=pdf2image"
-          )
-          
-          # Add data files
-          if (Test-Path -Path $imagickDir) {
-            $pyinstallerCmd += "--add-data=$imagickDir;imagick_portable_64"
-          }
-          
-          if (Test-Path -Path $popplerDir) {
-            $pyinstallerCmd += "--add-data=$popplerDir;poppler_portable_64"
-          }
-          
-          # Add script path
-          $pyinstallerCmd += $scriptPath
-          
-          # Execute PyInstaller
-          $cmdString = $pyinstallerCmd -join " "
-          Write-Host "Running command: pyinstaller $cmdString"
-          python -m PyInstaller $pyinstallerCmd
-          
-          # Create temp directory in dist
-          $distDir = Join-Path -Path (Get-Location) -ChildPath "dist\PDFManager"
-          $tempDir = Join-Path -Path $distDir -ChildPath "temp"
-          
-          if (-not (Test-Path -Path $tempDir)) {
-            New-Item -Path $tempDir -ItemType Directory -Force
-            Write-Host "Created temp directory: $tempDir"
-          }
-          
-          # Create a readme file in the temp directory
-          Set-Content -Path (Join-Path -Path $tempDir -ChildPath "readme.txt") -Value "Temporary files directory for PDF Manager"
-          
-          # Verify build output
-          if (Test-Path -Path $distDir) {
-            Write-Host "Build successful, listing contents:"
-            Get-ChildItem -Path $distDir -Recurse | Select-Object -First 20
-          } else {
-            Write-Host "Error: Build directory not found"
-          }
-      
-      - name: Create installer with InnoSetup
-        run: |
-          & "C:\Program Files (x86)\Inno Setup 6\iscc.exe" "build_tools\PDFManager_PyInstaller_Setup.iss"
-      
-      - name: Upload installer
-        uses: actions/upload-artifact@v4
+
+      - name: Install PyInstaller
+        run: pip install pyinstaller
+
+      - name: Build executable
+        run: python build_tools/build_with_pyinstaller.py
+
+      - name: Upload executable artifact
+        uses: actions/upload-artifact@v3
         with:
-          name: windows-installer
-          path: installer_64/*.exe 
+          name: PDFManager-executable
+          path: dist/PDFManager/PDFManager.exe
+
+  installer:
+    runs-on: windows-latest
+    needs: build
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Install Inno Setup
+        run: choco install innosetup -y --no-progress
+
+      - name: Build installer
+        working-directory: build_tools
+        run: iscc PDFManager_PyInstaller_Setup.iss
+
+      - name: Upload installer artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: PDFManager-installer
+          path: installer_64/**/*.exe
