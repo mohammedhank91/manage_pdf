@@ -30,7 +30,7 @@ jobs:
         run: python build_tools/build_with_pyinstaller.py
 
       - name: Upload executable artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: PDFManager-executable
           path: dist/PDFManager/PDFManager.exe
