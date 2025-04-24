@@ -21,39 +21,35 @@ print("=" * 60)
 
 # Verify dependencies are installed
 try:
-    import PyInstaller
+    import PyInstaller  # noqa: F401
 except ImportError:
     print("Installing PyInstaller...")
     subprocess.check_call([sys.executable, "-m", "pip", "install", "pyinstaller"])
 
-# Check for ImageMagick folder
-imagick_dir = Path(project_root) / "imagick_portable_64"
-poppler_dir = Path(project_root) / "poppler_portable_64"
-icon_file = Path(project_root) / "src" / "resources" / "manage_pdf.ico"
+# Check for ImageMagick and Poppler
+imagick_dir = project_root / "imagick_portable_64"
+poppler_dir = project_root / "poppler_portable_64"
+icon_file = project_root / "src" / "resources" / "manage_pdf.ico"
 
 if not imagick_dir.exists():
     print(f"WARNING: ImageMagick directory not found at {imagick_dir}")
-
 if not poppler_dir.exists():
     print(f"WARNING: Poppler directory not found at {poppler_dir}")
 
-# Run PyInstaller directly without creating a spec file
-print("\nBuilding executable with PyInstaller...")
-
-# Convert Windows paths to use forward slashes to avoid escape issues
+# Paths
 script_path = str(project_root / "src" / "pdf_manage.py").replace("\\", "/")
 icon_path = str(icon_file).replace("\\", "/")
 work_path = str(project_root / "build").replace("\\", "/")
 dist_path = str(project_root / "dist").replace("\\", "/")
 
-# Create the PyInstaller command
+# Build PyInstaller command
 pyinstaller_cmd = [
-    sys.executable, 
-    "-m", 
+    sys.executable,
+    "-m",
     "PyInstaller",
     "--name=PDFManager",
     "--clean",
-    "--windowed",  # No console window
+    "--windowed",
     f"--icon={icon_path}",
     f"--workpath={work_path}",
     f"--distpath={dist_path}",
@@ -64,39 +60,31 @@ pyinstaller_cmd = [
     "--hidden-import=pdf2image",
     "--hidden-import=xml",
     "--hidden-import=xml.dom",
-    # Exclude the extra Qt binding
+    # Exclude unnecessary Qt binding
     "--exclude-module=PyQt5",
+    # Add src directory to module search path so internal utils packages are found
+    f"--paths={str(project_root / 'src').replace('\\', '/')}",
 ]
 
-# Add path to ImageMagick as additional data
+# Include ImageMagick and Poppler
 if imagick_dir.exists():
-    dest_im_dir = "imagick_portable_64"
-    pyinstaller_cmd.append(f"--add-data={str(imagick_dir).replace('\\', '/')}{os.pathsep}{dest_im_dir}")
-    print(f"Adding ImageMagick from: {imagick_dir}")
-
-# Add path to Poppler as additional data
+    pyinstaller_cmd.append(f"--add-data={str(imagick_dir).replace('\\', '/')}{os.pathsep}imagick_portable_64")
 if poppler_dir.exists():
-    dest_poppler_dir = "poppler_portable_64"
-    pyinstaller_cmd.append(f"--add-data={str(poppler_dir).replace('\\', '/')}{os.pathsep}{dest_poppler_dir}")
-    print(f"Adding Poppler from: {poppler_dir}")
+    pyinstaller_cmd.append(f"--add-data={str(poppler_dir).replace('\\', '/')}{os.pathsep}poppler_portable_64")
 
-# Add the script path at the end
+# Add script to end
 pyinstaller_cmd.append(script_path)
 
 print("Running PyInstaller with command:")
 print(" ".join(pyinstaller_cmd))
 
+# Execute build
 try:
     subprocess.check_call(pyinstaller_cmd)
     print("\nBuild successful!")
-    print(f"Executable created at: {project_root}/dist/PDFManager/PDFManager.exe")
-    
-    # Copy the InnoSetup script for the PyInstaller build
-    original_iss = Path(project_root) / "build_tools" / "PDFManager_PyInstaller_Setup.iss"
-    
+    print(f"Executable created at: {dist_path}/PDFManager/PDFManager.exe")
     print("\nTo create an installer, run:")
-    print(f"iscc \"{original_iss}\"")
-    
+    print(f"iscc \"{project_root / 'build_tools' / 'PDFManager_PyInstaller_Setup.iss'}\"")
 except subprocess.CalledProcessError as e:
     print(f"Error building executable: {e}")
-    sys.exit(1) 
+    sys.exit(1)
