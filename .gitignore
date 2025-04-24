@@ -16,3 +16,4 @@ temp/
 poppler_portable_64/
 src/tabs/__pycache__/
 src/utils/__pycache__/
+build_tools/PDFManager_PyInstaller_Setup.iss

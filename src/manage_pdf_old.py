@@ -22,7 +22,11 @@ class ImageToPdfConverter:
         self.current_index = 0
         
         # Setup logging
-        logging.basicConfig(filename="error.log", level=logging.ERROR, 
+        log_dir = os.path.join(os.environ.get('APPDATA', ''), 'PDF Manager')
+        if not os.path.exists(log_dir):
+            os.makedirs(log_dir, exist_ok=True)
+        log_file = os.path.join(log_dir, 'error.log')
+        logging.basicConfig(filename=log_file, level=logging.ERROR, 
                            format='%(asctime)s : %(message)s', 
                            datefmt='%Y-%m-%d %H:%M:%S')
         
