@@ -31,17 +31,38 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
+      - name: Install ImageMagick Portable
+        run: choco install imagemagick.portable -y --no-progress
+
+      - name: Copy ImageMagick to project root
+        shell: pwsh
+        run: |
+          $src = Join-Path $Env:ProgramData 'chocolatey\lib\imagemagick.portable\tools\ImageMagick-*'
+          Copy-Item -Path $src -Destination imagick_portable_64 -Recurse -Force
+
+      - name: Install Poppler
+        run: choco install poppler -y --no-progress
+
+      - name: Copy Poppler to project root
+        shell: pwsh
+        run: |
+          $src = Join-Path $Env:ProgramData 'chocolatey\lib\poppler\tools\poppler-*'
+          Copy-Item -Path $src -Destination poppler_portable_64 -Recurse -Force
+
       - name: Install PyInstaller
         run: pip install pyinstaller
 
       - name: Build executable
         run: python build_tools/build_with_pyinstaller.py
 
-      - name: Upload build artifact (dist folder)
+      - name: Upload build artifacts (dist & tools)
         uses: actions/upload-artifact@v4
         with:
-          name: PDFManager-dist
-          path: dist
+          name: PDFManager-artifacts
+          path: |
+            dist
+            imagick_portable_64
+            poppler_portable_64
 
   installer:
     runs-on: windows-latest
@@ -50,11 +71,11 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      - name: Download build artifact (dist folder)
+      - name: Download build artifacts (dist & tools)
         uses: actions/download-artifact@v4
         with:
-          name: PDFManager-dist
-          path: dist
+          name: PDFManager-artifacts
+          path: .
 
       - name: Install Inno Setup
         run: choco install innosetup -y --no-progress
