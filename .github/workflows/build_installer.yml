@@ -54,7 +54,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: PDFManager-dist
-          path: dist
+          path: .
 
       - name: Install Inno Setup
         run: choco install innosetup -y --no-progress
