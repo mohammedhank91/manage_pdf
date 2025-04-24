@@ -3,11 +3,11 @@
 block_cipher = None
 
 a = Analysis(
-    ['C:\Users\nihilist\Downloads\manage_pdf\src\manage_pdf_qt.py'],
-    pathex=['C:\Users\nihilist\Downloads\manage_pdf'],
+    ['..\\src\\pdf_manage.py'],
+    pathex=['..'],
     binaries=[],
-    datas=[('C:\\Users\\nihilist\\Downloads\\manage_pdf\\imagick_portable_64', 'imagick_portable_64'), ('C:\\Users\\nihilist\\Downloads\\manage_pdf\\ghostscript_portable', 'ghostscript_portable'), ('C:\\Users\\nihilist\\Downloads\\manage_pdf\\src\\resources\\manage_pdf.ico', '.')],
-    hiddenimports=['PIL', 'PyPDF2', 'xml', 'xml.dom'],
+    datas=[('..\\imagick_portable_64', 'imagick_portable_64'),  ('..\\src\\resources\\manage_pdf.ico', '.')],
+    hiddenimports=['PIL', 'PyPDF2', 'pikepdf', 'xml', 'xml.dom'],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
@@ -36,7 +36,7 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon='C:\Users\nihilist\Downloads\manage_pdf\src\resources\manage_pdf.ico',
+    icon='..\\src\\resources\\manage_pdf.ico',
 )
 
 coll = COLLECT(
