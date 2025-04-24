@@ -53,30 +53,30 @@ Name: "desktopicon"; Description: "Create a &desktop icon"; GroupDescription: "A
 Name: "quicklaunchicon"; Description: "Create a Quick&Launch icon"; GroupDescription: "Additional icons:"; Flags: unchecked
 
 [Files]
-; Core application files
-Source: "..\dist\PDFManager\*"; DestDir: "{app}"; Flags: recursesubdirs ignoreversion createallsubdirs; Components: core
+; Core application files (from dist folder)
+Source: "{#SourceDir}\\dist\\PDFManager\\*"; DestDir: "{app}"; Flags: recursesubdirs ignoreversion createallsubdirs; Components: core
 Source: "{#MyAppIcon}"; DestDir: "{app}"; Flags: ignoreversion; Components: core
 
-; Portable tools (optional) — take them from your PyInstaller dist tree
-Source: "..\dist\PDFManager\imagick_portable_64\*"; DestDir: "{app}\imagick_portable_64"; Flags: recursesubdirs ignoreversion createallsubdirs; Components: tools
-Source: "..\dist\PDFManager\poppler_portable_64\*";   DestDir: "{app}\poppler_portable_64";   Flags: recursesubdirs ignoreversion createallsubdirs; Components: tools
+; Portable tools (optional) — from repo root
+Source: "{#SourceDir}\\imagick_portable_64\\*"; DestDir: "{app}\\imagick_portable_64"; Flags: recursesubdirs ignoreversion createallsubdirs; Components: tools
+Source: "{#SourceDir}\\poppler_portable_64\\*";   DestDir: "{app}\\poppler_portable_64";   Flags: recursesubdirs ignoreversion createallsubdirs; Components: tools
 
 [Icons]
-Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; IconFilename: "{app}\manage_pdf.ico"; Components: core
-Name: "{userdesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: desktopicon; Components: core
-Name: "{group}\{#MyAppName} &Quick Launch"; Filename: "{app}\{#MyAppExeName}"; Tasks: quicklaunchicon; Components: core
-Name: "{group}\Visit &Publisher Website"; Filename: "{#MyAppURL}"; WorkingDir: "{app}"
+Name: "{group}\\{#MyAppName}"; Filename: "{app}\\{#MyAppExeName}"; IconFilename: "{app}\\manage_pdf.ico"; Components: core
+Name: "{userdesktop}\\{#MyAppName}"; Filename: "{app}\\{#MyAppExeName}"; Tasks: desktopicon; Components: core
+Name: "{group}\\{#MyAppName} &Quick Launch"; Filename: "{app}\\{#MyAppExeName}"; Tasks: quicklaunchicon; Components: core
+Name: "{group}\\Visit &Publisher Website"; Filename: "{#MyAppURL}"; WorkingDir: "{app}"
 
 [Registry]
 ; File association for .pdf
-Root: HKCR; Subkey: ".pdf\OpenWithProgids"; ValueType: string; ValueName: "PDFManager.pdf"; ValueData: ""; Flags: uninsdeletevalue
+Root: HKCR; Subkey: ".pdf\\OpenWithProgids"; ValueType: string; ValueName: "PDFManager.pdf"; ValueData: ""; Flags: uninsdeletevalue
 Root: HKCR; Subkey: "PDFManager.pdf"; ValueType: string; ValueName: ""; ValueData: "{#MyAppName}"; Flags: uninsdeletekey
-Root: HKCR; Subkey: "PDFManager.pdf\DefaultIcon"; ValueType: string; ValueName: ""; ValueData: "{app}\manage_pdf.ico,0"; Flags: uninsdeletevalue
-Root: HKCR; Subkey: "PDFManager.pdf\shell\open\command"; ValueType: string; ValueName: ""; ValueData: """{app}\{#MyAppExeName}"" ""%1"""; Flags: uninsdeletevalue
+Root: HKCR; Subkey: "PDFManager.pdf\\DefaultIcon"; ValueType: string; ValueName: ""; ValueData: "{app}\\manage_pdf.ico,0"; Flags: uninsdeletevalue
+Root: HKCR; Subkey: "PDFManager.pdf\\shell\\open\\command"; ValueType: string; ValueName: ""; ValueData: """{app}\\{#MyAppExeName}"" ""%1"""; Flags: uninsdeletevalue
 
 [InstallDelete]
-Type: files; Name: "{app}\\temp\\*.*"
-Type: dirifempty; Name: "{app}\\temp"
+Type: files; Name: "{app}\\\\temp\\*.*"
+Type: dirifempty; Name: "{app}\\\\temp"
 
 [UninstallDelete]
 Type: files; Name: "{userappdata}\\PDF Manager\\*.*"
