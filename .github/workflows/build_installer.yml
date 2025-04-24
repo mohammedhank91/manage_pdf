@@ -54,6 +54,79 @@ jobs:
             Set-Content -Path "LICENSE.txt" -Value $license -Encoding UTF8
           }
       
-      - name: Create build script
+      - name: Build with PyInstaller
         run: |
-          $scriptContent = @'
+          # Run PyInstaller directly
+          $scriptPath = Join-Path -Path (Get-Location) -ChildPath "src\pdf_manage.py"
+          $iconPath = Join-Path -Path (Get-Location) -ChildPath "src\resources\manage_pdf.ico"
+          $imagickDir = Join-Path -Path (Get-Location) -ChildPath "imagick_portable_64"
+          $popplerDir = Join-Path -Path (Get-Location) -ChildPath "poppler_portable_64"
+          
+          Write-Host "Building executable with PyInstaller..."
+          Write-Host "Script path: $scriptPath"
+          Write-Host "Icon path: $iconPath"
+          
+          # Create PyInstaller command
+          $pyinstallerCmd = @(
+            "--name=PDFManager",
+            "--clean",
+            "--windowed",
+            "--icon=$iconPath",
+            "--noconfirm",
+            "--onedir",
+            "--hidden-import=PyQt6",
+            "--hidden-import=PyQt6.QtCore",
+            "--hidden-import=PyQt6.QtGui",
+            "--hidden-import=PyQt6.QtWidgets",
+            "--hidden-import=PIL",
+            "--hidden-import=PyPDF2",
+            "--hidden-import=pikepdf",
+            "--hidden-import=pdf2image"
+          )
+          
+          # Add data files
+          if (Test-Path -Path $imagickDir) {
+            $pyinstallerCmd += "--add-data=$imagickDir;imagick_portable_64"
+          }
+          
+          if (Test-Path -Path $popplerDir) {
+            $pyinstallerCmd += "--add-data=$popplerDir;poppler_portable_64"
+          }
+          
+          # Add script path
+          $pyinstallerCmd += $scriptPath
+          
+          # Execute PyInstaller
+          $cmdString = $pyinstallerCmd -join " "
+          Write-Host "Running command: pyinstaller $cmdString"
+          python -m PyInstaller $pyinstallerCmd
+          
+          # Create temp directory in dist
+          $distDir = Join-Path -Path (Get-Location) -ChildPath "dist\PDFManager"
+          $tempDir = Join-Path -Path $distDir -ChildPath "temp"
+          
+          if (-not (Test-Path -Path $tempDir)) {
+            New-Item -Path $tempDir -ItemType Directory -Force
+            Write-Host "Created temp directory: $tempDir"
+          }
+          
+          # Create a readme file in the temp directory
+          Set-Content -Path (Join-Path -Path $tempDir -ChildPath "readme.txt") -Value "Temporary files directory for PDF Manager"
+          
+          # Verify build output
+          if (Test-Path -Path $distDir) {
+            Write-Host "Build successful, listing contents:"
+            Get-ChildItem -Path $distDir -Recurse | Select-Object -First 20
+          } else {
+            Write-Host "Error: Build directory not found"
+          }
+      
+      - name: Create installer with InnoSetup
+        run: |
+          & "C:\Program Files (x86)\Inno Setup 6\iscc.exe" "build_tools\PDFManager_PyInstaller_Setup.iss"
+      
+      - name: Upload installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-installer
+          path: installer_64/*.exe 
