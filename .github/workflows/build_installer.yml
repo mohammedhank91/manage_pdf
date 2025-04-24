@@ -54,10 +54,9 @@ jobs:
             Set-Content -Path "LICENSE.txt" -Value $license -Encoding UTF8
           }
       
-      - name: Build with PyInstaller
+      - name: Create build script
         run: |
-          # Save the Python build script
-          $buildScript = @"
+          $scriptContent = @'
 import os
 import sys
 import subprocess
@@ -65,62 +64,64 @@ from pathlib import Path
 
 # Get paths
 project_root = Path.cwd()
-script_path = project_root / 'src' / 'pdf_manage.py'
-icon_path = project_root / 'src' / 'resources' / 'manage_pdf.ico'
-imagick_dir = project_root / 'imagick_portable_64'
-poppler_dir = project_root / 'poppler_portable_64'
+script_path = project_root / "src" / "pdf_manage.py"
+icon_path = project_root / "src" / "resources" / "manage_pdf.ico"
+imagick_dir = project_root / "imagick_portable_64"
+poppler_dir = project_root / "poppler_portable_64"
 
-print(f'Building executable with PyInstaller...')
-print(f'Script path: {script_path}')
-print(f'Icon path: {icon_path}')
+print(f"Building executable with PyInstaller...")
+print(f"Script path: {script_path}")
+print(f"Icon path: {icon_path}")
 
 # Create PyInstaller command
 cmd = [
     sys.executable,
-    '-m',
-    'PyInstaller',
-    '--name=PDFManager',
-    '--clean',
-    '--windowed',
-    f'--icon={icon_path}',
-    '--noconfirm',
-    '--onedir',
-    '--hidden-import=PyQt6',
-    '--hidden-import=PyQt6.QtCore',
-    '--hidden-import=PyQt6.QtGui',
-    '--hidden-import=PyQt6.QtWidgets',
-    '--hidden-import=PIL',
-    '--hidden-import=PyPDF2',
-    '--hidden-import=pikepdf',
-    '--hidden-import=pdf2image',
+    "-m",
+    "PyInstaller",
+    "--name=PDFManager",
+    "--clean",
+    "--windowed",
+    f"--icon={icon_path}",
+    "--noconfirm",
+    "--onedir",
+    "--hidden-import=PyQt6",
+    "--hidden-import=PyQt6.QtCore",
+    "--hidden-import=PyQt6.QtGui",
+    "--hidden-import=PyQt6.QtWidgets",
+    "--hidden-import=PIL",
+    "--hidden-import=PyPDF2",
+    "--hidden-import=pikepdf",
+    "--hidden-import=pdf2image",
 ]
 
 # Add data files
 if imagick_dir.exists():
-    cmd.append(f'--add-data={imagick_dir};imagick_portable_64')
+    cmd.append(f"--add-data={imagick_dir};imagick_portable_64")
 if poppler_dir.exists():
-    cmd.append(f'--add-data={poppler_dir};poppler_portable_64')
+    cmd.append(f"--add-data={poppler_dir};poppler_portable_64")
 
 # Add script path
 cmd.append(str(script_path))
 
 # Execute PyInstaller
-print('Running command: ' + ' '.join(cmd))
+print("Running command: " + " ".join(cmd))
 subprocess.call(cmd)
 
 # Create temp directory in dist
-dist_dir = project_root / 'dist' / 'PDFManager'
-temp_dir = dist_dir / 'temp'
+dist_dir = project_root / "dist" / "PDFManager"
+temp_dir = dist_dir / "temp"
 if not temp_dir.exists():
     os.makedirs(temp_dir, exist_ok=True)
-    print(f'Created temp directory: {temp_dir}')
+    print(f"Created temp directory: {temp_dir}")
 
 # Copy readme
-with open(temp_dir / 'readme.txt', 'w') as f:
-    f.write('Temporary files directory for PDF Manager')
-"@
-          Set-Content -Path "build_script.py" -Value $buildScript
-          
+with open(temp_dir / "readme.txt", "w") as f:
+    f.write("Temporary files directory for PDF Manager")
+'@
+          Set-Content -Path "build_script.py" -Value $scriptContent -Encoding UTF8
+      
+      - name: Build with PyInstaller
+        run: |
           # Run the build script
           python build_script.py
           
