@@ -107,6 +107,43 @@ def setup_convert_tab(self):
     self.num_margin = QSpinBox()
     self.num_margin.setRange(0, 100)
     self.num_margin.setValue(10)
+    self.num_margin.setSingleStep(1)
+    self.num_margin.setButtonSymbols(QSpinBox.ButtonSymbols.UpDownArrows)
+    self.num_margin.setStyleSheet("""
+        QSpinBox {
+            padding: 4px;
+            border: 1px solid #100101;
+            border-radius: 3px;
+        }
+        QSpinBox::up-button {
+            subcontrol-origin: border;
+            subcontrol-position: top right;
+            width: 16px;
+            border-left: 1px solid #090707;
+            border-top-right-radius: 3px;
+        }
+        QSpinBox::down-button {
+            subcontrol-origin: border;
+            subcontrol-position: bottom right;
+            width: 16px;
+            border-left: 1px solid #090707;
+            border-bottom-right-radius: 3px;
+        }
+        QSpinBox::up-arrow {
+            width: 8px;
+            height: 8px;
+            border-bottom: 5px solid #000000;
+            border-right: 4px solid transparent;
+            border-left: 4px solid transparent;
+        }
+        QSpinBox::down-arrow {
+            width: 8px;
+            height: 8px;
+            border-top: 5px solid #000000;
+            border-right: 4px solid transparent;
+            border-left: 4px solid transparent;
+        }
+    """)
     paper_layout.addWidget(self.num_margin, 2, 1)
     
     output_layout.addLayout(paper_layout)

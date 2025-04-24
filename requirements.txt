@@ -1,0 +1,6 @@
+pillow
+PyQt6
+pyinstaller
+pikepdf
+PyPDF2
+pdf2image
