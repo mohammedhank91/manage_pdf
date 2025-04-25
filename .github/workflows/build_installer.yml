@@ -2,90 +2,57 @@ name: Build and Package PDFManager
 
 on:
   push:
-    branches:
-      - main
+    branches: [ main ]
   pull_request:
-    branches:
-      - main
+    branches: [ main ]
 
 jobs:
   build:
     runs-on: windows-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Cache pip
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: ~/.cache/pip
           key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
           restore-keys: |
             ${{ runner.os }}-pip-
-
+    
       - name: Setup Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.13'
-
+    
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install pyinstaller
           pip install -r requirements.txt
-
+    
       - name: Download and extract ImageMagick Portable
         shell: pwsh
         run: |
           curl -sL "https://imagemagick.org/archive/binaries/ImageMagick-7.1.1-47-portable-Q16-x64.zip" -o imagick.zip
           Expand-Archive -Path imagick.zip -DestinationPath imagick_portable_64 -Force
-
-      - name: Flatten ImageMagick directory
-        shell: pwsh
-        run: |
-          $ErrorActionPreference = 'SilentlyContinue'
-          $root = 'imagick_portable_64'
-          if (Test-Path $root) {
-            $dir = Get-ChildItem $root -Directory | Select-Object -First 1
-            if ($dir) {
-              cmd /c "robocopy $($dir.FullName) $root /E /MOVE /NFL /NDL /NJH /NJS & exit 0"
-              Remove-Item -Path $dir.FullName -Recurse -Force -ErrorAction SilentlyContinue
-              Write-Host 'ImageMagick directory flattened.'
-            } else {
-              Write-Host 'No nested ImageMagick directory found; skipping.'
-            }
-          } else {
-            Write-Host 'imagick_portable_64 not found; skipping flatten.'
-          }
-
+          # move to imagick_portable_64
+          Move-Item -Path imagick_portable_64 -Destination imagick_portable_64
       - name: Download and extract Poppler Portable
         shell: pwsh
         run: |
           curl -sL "https://github.com/oschwartz10612/poppler-windows/releases/download/v24.02.0-0/Release-24.02.0-0.zip" -o poppler.zip
+          New-Item -ItemType Directory -Path poppler_portable_64 -Force
           Expand-Archive -Path poppler.zip -DestinationPath poppler_portable_64 -Force
-
-      - name: Flatten Poppler directory
-        shell: pwsh
-        run: |
-          $ErrorActionPreference = 'SilentlyContinue'
-          $root = 'poppler_portable_64'
-          if (Test-Path $root) {
-            $dir = Get-ChildItem $root -Directory | Select-Object -First 1
-            if ($dir) {
-              cmd /c "robocopy $($dir.FullName) $root /E /MOVE /NFL /NDL /NJH /NJS & exit 0"
-              Remove-Item -Path $dir.FullName -Recurse -Force -ErrorAction SilentlyContinue
-              Write-Host 'Poppler directory flattened.'
-            } else {
-              Write-Host 'No nested Poppler directory found; skipping.'
-            }
-          } else {
-            Write-Host 'poppler_portable_64 not found; skipping flatten.'
-          }
+          # move to poppler_portable_64
+          Move-Item -Path poppler_portable_64 -Destination poppler_portable_64
+    
 
       - name: Build executable (windowed)
         run: |
           python build_tools/build_with_pyinstaller.py --windowed
-
+    
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -95,30 +62,28 @@ jobs:
             dist/
             imagick_portable_64/
             poppler_portable_64/
-
   installer:
     runs-on: windows-latest
     needs: build
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Download build artifacts
         uses: actions/download-artifact@v4
         with:
           name: PDFManager-artifacts
           path: .
-
+    
       - name: Install Inno Setup
         run: choco install innosetup -y --no-progress
-
+    
       - name: Build installer
         working-directory: build_tools
         run: iscc PDFManager_PyInstaller_Setup.iss
-
+    
       - name: Upload installer
         uses: actions/upload-artifact@v4
         with:
           name: PDFManager-installer
           path: installer_64/**/*.exe
-
