@@ -21,7 +21,7 @@ jobs:
           path: ~/.cache/pip
           key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
           restore-keys: |
-            - ${{ runner.os }}-pip-
+            ${{ runner.os }}-pip-
 
       - name: Setup Python
         uses: actions/setup-python@v4
@@ -44,32 +44,30 @@ jobs:
         shell: pwsh
         run: |
           $sub = Get-ChildItem imagick_portable_64 -Directory | Select-Object -First 1
-          Move-Item -Path "$($sub.FullName)\*" -Destination imagick_portable_64 -Force
-          Remove-Item -Path $sub.FullName -Recurse -Force
+          if ($sub) {
+              robocopy $sub.FullName imagick_portable_64 /E /MOVE | Out-Null
+          } else {
+              Write-Host 'No nested directory found; skipping flatten.'
+          }
 
       - name: Download and extract Poppler Portable
         shell: pwsh
         run: |
           curl -sL "https://github.com/oschwartz10612/poppler-windows/releases/download/v24.02.0-0/Release-24.02.0-0.zip" -o poppler.zip
           Expand-Archive -Path poppler.zip -DestinationPath poppler_portable_64 -Force
+
       - name: Flatten Poppler directory
         shell: pwsh
         run: |
-          # If library\bin is already at root, no flatten needed
-          if (-Not (Test-Path poppler_portable_64\library\bin)) {
-              # Nested extraction detected; flatten contents
-              $sub = Get-ChildItem poppler_portable_64 -Directory | Select-Object -First 1
-              # Ensure the target library\bin folder exists
-              New-Item -ItemType Directory -Path poppler_portable_64\library\bin -Force | Out-Null
-              # Move executables and DLLs from nested library\bin
-              Move-Item -Path "$($sub.FullName)\library\bin\*" -Destination poppler_portable_64\library\bin -Force
-              # Move top-level files and folders up
-              Move-Item -Path "$($sub.FullName)\*" -Destination poppler_portable_64 -Force
-              # Remove the now-empty nested root
-              Remove-Item -Path $sub.FullName -Recurse -Force
+          $dirs = Get-ChildItem poppler_portable_64 -Directory
+          if ($dirs) {
+              $sub = $dirs | Select-Object -First 1
+              robocopy $sub.FullName poppler_portable_64 /E /MOVE | Out-Null
+              Remove-Item $sub.FullName -Recurse -Force
           } else {
-              Write-Host "Poppler directory already flattened."
+              Write-Host 'No nested directory found; skipping flatten.'
           }
+
       - name: Build executable (windowed)
         run: |
           python build_tools/build_with_pyinstaller.py --windowed
