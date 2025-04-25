@@ -53,9 +53,14 @@ Name: "desktopicon"; Description: "Create a &desktop icon"; GroupDescription: "A
 Name: "quicklaunchicon"; Description: "Create a Quick&Launch icon"; GroupDescription: "Additional icons:"; Flags: unchecked
 
 [Files]
-; Core application files (from dist folder)
-Source: "{#SourceDir}\\dist\\PDFManager\\*"; DestDir: "{app}"; Flags: recursesubdirs ignoreversion createallsubdirs; Components: core
-Source: "{#MyAppIcon}"; DestDir: "{app}"; Flags: ignoreversion; Components: core
+; Core application files (from dist folder) - updated for onefile build
+Source: "{#SourceDir}\\dist\\PDFManager.exe"; DestDir: "{app}"; Flags: ignoreversion; Components: core
+Source: "{#MyAppIcon}"; DestDir: "{app}"; DestName: "manage_pdf.ico"; Flags: ignoreversion; Components: core
+
+; Add required utils and tabs directories - for module structure
+Source: "{#SourceDir}\\src\\utils\\*"; DestDir: "{app}\\utils"; Flags: recursesubdirs ignoreversion createallsubdirs; Components: core
+Source: "{#SourceDir}\\src\\tabs\\*"; DestDir: "{app}\\tabs"; Flags: recursesubdirs ignoreversion createallsubdirs; Components: core
+Source: "{#SourceDir}\\src\\resources\\*"; DestDir: "{app}\\resources"; Flags: recursesubdirs ignoreversion createallsubdirs; Components: core
 
 ; Portable tools (optional) — from repo root
 Source: "{#SourceDir}\\imagick_portable_64\\*"; DestDir: "{app}\\imagick_portable_64"; Flags: recursesubdirs ignoreversion createallsubdirs; Components: tools
