@@ -60,12 +60,34 @@ pyinstaller_cmd = [
     "--hidden-import=pdf2image",
     "--hidden-import=xml",
     "--hidden-import=xml.dom",
+    # Add explicit utils submodules
+    "--hidden-import=utils",
+    "--hidden-import=utils.convert",
+    "--hidden-import=utils.merge",
+    "--hidden-import=utils.edit_pdf",
+    "--hidden-import=utils.compress",
+    "--hidden-import=utils.drag_drop",
+    "--hidden-import=utils.magick",
+    "--hidden-import=utils.split",
+    "--hidden-import=utils.developer",
+    "--hidden-import=utils.check_dependencies",
+    "--hidden-import=utils.image_tool",
+    "--hidden-import=utils.style",
+    # Add tabs modules
+    "--hidden-import=tabs.main_tab",
+    "--hidden-import=tabs.convert_tab",
+    "--hidden-import=tabs.compress_tab",
+    "--hidden-import=tabs.merge_tab",
+    "--hidden-import=tabs.split_tab",
     # Exclude unnecessary Qt binding
     "--exclude-module=PyQt5",
-    # Add utils submodules
+    # Add utils submodules (recursive collection)
     "--collect-submodules=utils",
+    "--collect-submodules=tabs",
     # Add src directory to module search path so internal utils packages are found
     f"--paths={str(project_root / 'src').replace('\\', '/')}",
+    # Include the src directory in the distribution
+    f"--add-data={str(project_root / 'src').replace('\\', '/')}{os.pathsep}src",
 ]
 
 # Include ImageMagick and Poppler
