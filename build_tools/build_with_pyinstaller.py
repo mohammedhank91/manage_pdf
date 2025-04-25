@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 """
 Build script for PDF Manager using PyInstaller
 This script will create a standalone executable that includes ImageMagick and Poppler
