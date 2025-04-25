@@ -49,18 +49,17 @@ pyinstaller_cmd = [
     "PyInstaller",
     "--name=PDFManager",
     "--clean",
+    "--onedir",  # Use one-dir format for better debugging
     "--windowed",
     f"--icon={icon_path}",
     f"--workpath={work_path}",
     f"--distpath={dist_path}",
     "--noconfirm",
-    "--hidden-import=PIL",
-    "--hidden-import=PyPDF2",
-    "--hidden-import=pikepdf",
-    "--hidden-import=pdf2image",
-    "--hidden-import=xml",
-    "--hidden-import=xml.dom",
-    # Add explicit utils submodules
+    # Explicitly add src directory to Python's module search path
+    f"--paths={str(project_root / 'src').replace('\\', '/')}",
+    # Add the whole src package to the build
+    f"--add-data={str(project_root / 'src').replace('\\', '/')}{os.pathsep}.",
+    # Explicit imports for all modules
     "--hidden-import=utils",
     "--hidden-import=utils.convert",
     "--hidden-import=utils.merge",
@@ -73,21 +72,18 @@ pyinstaller_cmd = [
     "--hidden-import=utils.check_dependencies",
     "--hidden-import=utils.image_tool",
     "--hidden-import=utils.style",
-    # Add tabs modules
     "--hidden-import=tabs.main_tab",
     "--hidden-import=tabs.convert_tab",
     "--hidden-import=tabs.compress_tab",
     "--hidden-import=tabs.merge_tab",
     "--hidden-import=tabs.split_tab",
+    # Force recursion into packages
+    "--recursive-copy-metadata=PIL",
+    "--recursive-copy-metadata=pikepdf",
+    "--recursive-copy-metadata=PyPDF2",
+    "--recursive-copy-metadata=pdf2image",
     # Exclude unnecessary Qt binding
     "--exclude-module=PyQt5",
-    # Add utils submodules (recursive collection)
-    "--collect-submodules=utils",
-    "--collect-submodules=tabs",
-    # Add src directory to module search path so internal utils packages are found
-    f"--paths={str(project_root / 'src').replace('\\', '/')}",
-    # Include the src directory in the distribution
-    f"--add-data={str(project_root / 'src').replace('\\', '/')}{os.pathsep}src",
 ]
 
 # Include ImageMagick and Poppler

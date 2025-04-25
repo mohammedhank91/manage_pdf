@@ -4,6 +4,22 @@ import logging
 import types
 import shutil
 
+# Add the current directory to the Python path to ensure modules can be found
+if getattr(sys, 'frozen', False):
+    # We're in a PyInstaller bundle
+    base_dir = sys._MEIPASS
+    if base_dir not in sys.path:
+        sys.path.insert(0, base_dir)
+        # Also add the utils directory specifically
+        utils_dir = os.path.join(base_dir, 'utils')
+        if os.path.exists(utils_dir) and utils_dir not in sys.path:
+            sys.path.insert(0, utils_dir)
+else:
+    # We're running as a script
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    if current_dir not in sys.path:
+        sys.path.insert(0, current_dir)
+
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QLabel, QPushButton, QCheckBox, 
     QSpinBox, QComboBox, QFileDialog, QMessageBox, QProgressBar, 
