@@ -49,16 +49,18 @@ pyinstaller_cmd = [
     "PyInstaller",
     "--name=PDFManager",
     "--clean",
-    "--onedir",  # Use one-dir format for better debugging
+    "--onedir",
     "--windowed",
     f"--icon={icon_path}",
     f"--workpath={work_path}",
     f"--distpath={dist_path}",
     "--noconfirm",
-    # Explicitly add src directory to Python's module search path
+    "--log-level=DEBUG",  # Add debug logging
+    # Add src directory to Python's module search path
     f"--paths={str(project_root / 'src').replace('\\', '/')}",
     # Add the whole src package to the build
-    f"--add-data={str(project_root / 'src').replace('\\', '/')}{os.pathsep}.",
+    f"--add-data={str(project_root / 'src/utils').replace('\\', '/')}{os.pathsep}utils",
+    f"--add-data={str(project_root / 'src/tabs').replace('\\', '/')}{os.pathsep}tabs",
     # Explicit imports for all modules
     "--hidden-import=utils",
     "--hidden-import=utils.convert",
@@ -77,11 +79,10 @@ pyinstaller_cmd = [
     "--hidden-import=tabs.compress_tab",
     "--hidden-import=tabs.merge_tab",
     "--hidden-import=tabs.split_tab",
-    # Force recursion into packages
-    "--recursive-copy-metadata=PIL",
-    "--recursive-copy-metadata=pikepdf",
-    "--recursive-copy-metadata=PyPDF2",
-    "--recursive-copy-metadata=pdf2image",
+    "--hidden-import=PyQt6",
+    "--hidden-import=PyQt6.QtWidgets",
+    "--hidden-import=PyQt6.QtGui",
+    "--hidden-import=PyQt6.QtCore",
     # Exclude unnecessary Qt binding
     "--exclude-module=PyQt5",
 ]
@@ -98,13 +99,21 @@ pyinstaller_cmd.append(script_path)
 print("Running PyInstaller with command:")
 print(" ".join(pyinstaller_cmd))
 
-# Execute build
+# Execute build with detailed error capture
 try:
-    subprocess.check_call(pyinstaller_cmd)
-    print("\nBuild successful!")
-    print(f"Executable created at: {dist_path}/PDFManager/PDFManager.exe")
-    print("\nTo create an installer, run:")
-    print(f"iscc \"{project_root / 'build_tools' / 'PDFManager_PyInstaller_Setup.iss'}\"")
-except subprocess.CalledProcessError as e:
+    result = subprocess.run(pyinstaller_cmd, capture_output=True, text=True)
+    if result.returncode != 0:
+        print(f"\nBuild failed with return code: {result.returncode}")
+        print("\nSTDOUT:")
+        print(result.stdout)
+        print("\nSTDERR:")
+        print(result.stderr)
+        sys.exit(1)
+    else:
+        print("\nBuild successful!")
+        print(f"Executable created at: {dist_path}/PDFManager/PDFManager.exe")
+        print("\nTo create an installer, run:")
+        print(f"iscc \"{project_root / 'build_tools' / 'PDFManager_PyInstaller_Setup.iss'}\"")
+except Exception as e:
     print(f"Error building executable: {e}")
     sys.exit(1)
