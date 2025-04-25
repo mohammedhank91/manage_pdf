@@ -21,7 +21,7 @@ jobs:
           path: ~/.cache/pip
           key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
           restore-keys: |
-            - ${{ runner.os }}-pip-
+            ${{ runner.os }}-pip-
 
       - name: Setup Python
         uses: actions/setup-python@v4
@@ -48,7 +48,7 @@ jobs:
           if (Test-Path $root) {
             $dir = Get-ChildItem $root -Directory | Select-Object -First 1
             if ($dir) {
-              robocopy $dir.FullName $root /E /MOVE /NFL /NDL /NJH /NJS | Out-Null
+              cmd /c "robocopy $($dir.FullName) $root /E /MOVE /NFL /NDL /NJH /NJS & exit 0"
               Remove-Item -Path $dir.FullName -Recurse -Force -ErrorAction SilentlyContinue
               Write-Host 'ImageMagick directory flattened.'
             } else {
@@ -72,7 +72,7 @@ jobs:
           if (Test-Path $root) {
             $dir = Get-ChildItem $root -Directory | Select-Object -First 1
             if ($dir) {
-              robocopy $dir.FullName $root /E /MOVE /NFL /NDL /NJH /NJS | Out-Null
+              cmd /c "robocopy $($dir.FullName) $root /E /MOVE /NFL /NDL /NJH /NJS & exit 0"
               Remove-Item -Path $dir.FullName -Recurse -Force -ErrorAction SilentlyContinue
               Write-Host 'Poppler directory flattened.'
             } else {
