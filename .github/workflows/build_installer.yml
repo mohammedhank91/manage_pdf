@@ -21,7 +21,7 @@ jobs:
           path: ~/.cache/pip
           key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
           restore-keys: |
-            ${{ runner.os }}-pip-
+            - ${{ runner.os }}-pip-
 
       - name: Setup Python
         uses: actions/setup-python@v4
@@ -43,11 +43,18 @@ jobs:
       - name: Flatten ImageMagick directory
         shell: pwsh
         run: |
-          $sub = Get-ChildItem imagick_portable_64 -Directory | Select-Object -First 1
-          if ($sub) {
-              robocopy $sub.FullName imagick_portable_64 /E /MOVE | Out-Null
+          $ErrorActionPreference = 'Continue'
+          if (Test-Path imagick_portable_64) {
+            $dir = Get-ChildItem imagick_portable_64 -Directory | Select-Object -First 1
+            if ($dir) {
+              robocopy $dir.FullName imagick_portable_64 /E /MOVE /NFL /NDL /NJH /NJS | Out-Null
+              Remove-Item -Recurse -Force $dir.FullName
+              Write-Host 'ImageMagick flattened.'
+            } else {
+              Write-Host 'No nested ImageMagick directory; skipping flatten.'
+            }
           } else {
-              Write-Host 'No nested directory found; skipping flatten.'
+            Write-Host 'imagick_portable_64 not found; skipping flatten.'
           }
 
       - name: Download and extract Poppler Portable
@@ -59,13 +66,18 @@ jobs:
       - name: Flatten Poppler directory
         shell: pwsh
         run: |
-          $dirs = Get-ChildItem poppler_portable_64 -Directory
-          if ($dirs) {
-              $sub = $dirs | Select-Object -First 1
-              robocopy $sub.FullName poppler_portable_64 /E /MOVE | Out-Null
-              Remove-Item $sub.FullName -Recurse -Force
+          $ErrorActionPreference = 'Continue'
+          if (Test-Path poppler_portable_64) {
+            $dir = Get-ChildItem poppler_portable_64 -Directory | Select-Object -First 1
+            if ($dir) {
+              robocopy $dir.FullName poppler_portable_64 /E /MOVE /NFL /NDL /NJH /NJS | Out-Null
+              Remove-Item -Recurse -Force $dir.FullName
+              Write-Host 'Poppler flattened.'
+            } else {
+              Write-Host 'No nested Poppler directory; skipping flatten.'
+            }
           } else {
-              Write-Host 'No nested directory found; skipping flatten.'
+            Write-Host 'poppler_portable_64 not found; skipping flatten.'
           }
 
       - name: Build executable (windowed)
