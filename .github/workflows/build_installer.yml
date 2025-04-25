@@ -20,7 +20,7 @@ jobs:
         with:
           path: ~/.cache/pip
           key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
-          restore-keys:
+          restore-keys: |
             - ${{ runner.os }}-pip-
 
       - name: Setup Python
@@ -43,21 +43,22 @@ jobs:
       - name: Flatten ImageMagick directory
         shell: pwsh
         run: |
-          # suppress non-terminating errors
           $ErrorActionPreference = 'SilentlyContinue'
           $root = 'imagick_portable_64'
           if (Test-Path $root) {
-              $sub = Get-ChildItem $root -Directory | Select-Object -First 1
-              if ($sub) {
-                  robocopy $sub.FullName $root /E /MOVE /NFL /NDL /NJH /NJS | Out-Null
-                  Remove-Item -Path $sub.FullName -Recurse -Force -ErrorAction SilentlyContinue
-                  Write-Host 'ImageMagick directory flattened.'
-              } else {
-                  Write-Host 'No nested ImageMagick directory found; skipping.'
-              }
+            $dir = Get-ChildItem $root -Directory | Select-Object -First 1
+            if ($dir) {
+              robocopy $dir.FullName $root /E /MOVE /NFL /NDL /NJH /NJS | Out-Null
+              Remove-Item -Path $dir.FullName -Recurse -Force -ErrorAction SilentlyContinue
+              Write-Host 'ImageMagick directory flattened.'
+            } else {
+              Write-Host 'No nested ImageMagick directory found; skipping.'
+            }
           } else {
-              Write-Host 'imagick_portable_64 not found; skipping flatten.'
-          }      - name: Download and extract Poppler Portable
+            Write-Host 'imagick_portable_64 not found; skipping flatten.'
+          }
+
+      - name: Download and extract Poppler Portable
         shell: pwsh
         run: |
           curl -sL "https://github.com/oschwartz10612/poppler-windows/releases/download/v24.02.0-0/Release-24.02.0-0.zip" -o poppler.zip
@@ -66,21 +67,22 @@ jobs:
       - name: Flatten Poppler directory
         shell: pwsh
         run: |
-          # suppress non-terminating errors
           $ErrorActionPreference = 'SilentlyContinue'
           $root = 'poppler_portable_64'
           if (Test-Path $root) {
-              $sub = Get-ChildItem $root -Directory | Select-Object -First 1
-              if ($sub) {
-                  robocopy $sub.FullName $root /E /MOVE /NFL /NDL /NJH /NJS | Out-Null
-                  Remove-Item -Path $sub.FullName -Recurse -Force -ErrorAction SilentlyContinue
-                  Write-Host 'Poppler directory flattened.'
-              } else {
-                  Write-Host 'No nested Poppler directory found; skipping.'
-              }
+            $dir = Get-ChildItem $root -Directory | Select-Object -First 1
+            if ($dir) {
+              robocopy $dir.FullName $root /E /MOVE /NFL /NDL /NJH /NJS | Out-Null
+              Remove-Item -Path $dir.FullName -Recurse -Force -ErrorAction SilentlyContinue
+              Write-Host 'Poppler directory flattened.'
+            } else {
+              Write-Host 'No nested Poppler directory found; skipping.'
+            }
           } else {
-              Write-Host 'poppler_portable_64 not found; skipping flatten.'
-          }      - name: Build executable (windowed)
+            Write-Host 'poppler_portable_64 not found; skipping flatten.'
+          }
+
+      - name: Build executable (windowed)
         run: |
           python build_tools/build_with_pyinstaller.py --windowed
 
