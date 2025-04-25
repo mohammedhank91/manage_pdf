@@ -3,185 +3,38 @@ import os
 import logging
 import types
 import shutil
-import traceback
 
-# Add the current directory to the Python path to ensure modules can be found
-if getattr(sys, 'frozen', False):
-    # We're in a PyInstaller bundle
-    base_dir = sys._MEIPASS
-    if base_dir not in sys.path:
-        sys.path.insert(0, base_dir)
-        # Also add the utils directory specifically
-        utils_dir = os.path.join(base_dir, 'utils')
-        if os.path.exists(utils_dir) and utils_dir not in sys.path:
-            sys.path.insert(0, utils_dir)
-        # And the tabs directory
-        tabs_dir = os.path.join(base_dir, 'tabs')
-        if os.path.exists(tabs_dir) and tabs_dir not in sys.path:
-            sys.path.insert(0, tabs_dir)
-            
-    # Print diagnostic information
-    print(f"Running in frozen mode. Base directory: {base_dir}")
-    print(f"Python path: {sys.path}")
-    print(f"Looking for utils modules in: {utils_dir}")
-    print(f"Directory contents: {os.listdir(base_dir) if os.path.exists(base_dir) else 'Not found'}")
-    if os.path.exists(utils_dir):
-        print(f"Utils directory contents: {os.listdir(utils_dir)}")
-    if os.path.exists(tabs_dir):
-        print(f"Tabs directory contents: {os.listdir(tabs_dir)}")
-else:
-    # We're running as a script
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    if current_dir not in sys.path:
-        sys.path.insert(0, current_dir)
-    
-    # Define utils_dir and tabs_dir for the script mode too
-    utils_dir = os.path.join(current_dir, 'utils')
-    tabs_dir = os.path.join(current_dir, 'tabs')
-    
-    # Add these directories to sys.path if they exist
-    if os.path.exists(utils_dir) and utils_dir not in sys.path:
-        sys.path.insert(0, utils_dir)
-    if os.path.exists(tabs_dir) and tabs_dir not in sys.path:
-        sys.path.insert(0, tabs_dir)
-    
-    print(f"Running in script mode. Current directory: {current_dir}")
-    print(f"Python path: {sys.path}")
+from PyQt6.QtWidgets import (
+    QApplication, QMainWindow, QLabel, QPushButton, QCheckBox, 
+    QSpinBox, QComboBox, QFileDialog, QMessageBox, QProgressBar, 
+    QListWidget, QFrame, QVBoxLayout, QHBoxLayout, QWidget, 
+    QTabWidget, QScrollArea, QListWidgetItem, QGridLayout, QGroupBox, QLineEdit, QRadioButton, QInputDialog
+)
+from PyQt6.QtGui import QIcon, QPixmap
+from PyQt6.QtCore import Qt, QSize
 
-# Set up error handling for GUI imports
-try:
-    # Try to import PyQt components
-    from PyQt6.QtWidgets import (
-        QApplication, QMainWindow, QLabel, QPushButton, QCheckBox, 
-        QSpinBox, QComboBox, QFileDialog, QMessageBox, QProgressBar, 
-        QListWidget, QFrame, QVBoxLayout, QHBoxLayout, QWidget, 
-        QTabWidget, QScrollArea, QListWidgetItem, QGridLayout, QGroupBox, QLineEdit, QRadioButton, QInputDialog
-    )
-    from PyQt6.QtGui import QIcon, QPixmap
-    from PyQt6.QtCore import Qt, QSize
-except ImportError as e:
-    print(f"Critical error importing GUI components: {e}")
-    traceback.print_exc()
-    sys.exit(1)  # Exit if we can't import the GUI components
+from utils.style import apply_modern_style
+from utils.convert import convert_to_pdf
+from utils.merge import merge_pdfs, update_merge_summary, add_pdf, remove_pdf, move_pdf_up, move_pdf_down
+from utils.edit_pdf import setup_pdf_editor
+from utils.compress import select_pdf, preview_pdf, print_pdf, compress_pdf
+from utils.convert import update_conversion_ui, save_conversion_settings, load_conversion_settings
+from utils.drag_drop import setupDragDrop, dragEnterEvent, dropEvent
+from utils.magick import find_imagick, run_imagemagick
+from utils.split import extract_pages, parse_page_range, extract_single_page_with_pypdf2, select_pdf_to_split, count_pages, extract_pages_with_pypdf2, set_page_range
 
-# Import utility modules with fallback
-try:
-    from utils.style import apply_modern_style
-except ImportError as e:
-    print(f"Error importing style module: {e}")
-    traceback.print_exc()
-    
-    # Create fallback function
-    def apply_modern_style(window):
-        print("Using fallback style function")
-        pass
+# Import tab setup functions
+from tabs.main_tab import setup_main_tab
+from tabs.convert_tab import setup_convert_tab  
+from tabs.compress_tab import setup_tools_tab
+from tabs.merge_tab import setup_merge_tab
+from tabs.split_tab import setup_split_tab
 
-try:
-    from utils.convert import convert_to_pdf, update_conversion_ui, save_conversion_settings, load_conversion_settings
-except ImportError as e:
-    print(f"Error importing convert module: {e}")
-    traceback.print_exc()
-    
-    # Create fallback functions
-    def convert_to_pdf(self): pass
-    def update_conversion_ui(self): pass
-    def save_conversion_settings(self): pass
-    def load_conversion_settings(self): pass
-
-# Continue with other imports with similar error handling
-try:
-    from utils.merge import merge_pdfs, update_merge_summary, add_pdf, remove_pdf, move_pdf_up, move_pdf_down
-except ImportError:
-    # Fallback empty functions
-    def merge_pdfs(self): pass
-    def update_merge_summary(self): pass
-    def add_pdf(self): pass
-    def remove_pdf(self): pass
-    def move_pdf_up(self): pass
-    def move_pdf_down(self): pass
-
-# More imports with error handling...
-try:
-    from utils.edit_pdf import setup_pdf_editor
-except ImportError:
-    def setup_pdf_editor(self): pass
-
-try:
-    from utils.compress import select_pdf, preview_pdf, print_pdf, compress_pdf
-except ImportError:
-    def select_pdf(self): pass
-    def preview_pdf(self): pass
-    def print_pdf(self): pass
-    def compress_pdf(self): pass
-
-try:
-    from utils.drag_drop import setupDragDrop, dragEnterEvent, dropEvent
-except ImportError:
-    def setupDragDrop(self): pass
-    def dragEnterEvent(self, event): event.accept()
-    def dropEvent(self, event): pass
-
-try:
-    from utils.magick import find_imagick, run_imagemagick
-except ImportError:
-    def find_imagick(self): return "magick"
-    def run_imagemagick(self, cmd): print(f"Would run: {cmd}")
-
-try:
-    from utils.split import extract_pages, parse_page_range, extract_single_page_with_pypdf2, select_pdf_to_split, count_pages, extract_pages_with_pypdf2, set_page_range
-except ImportError:
-    def extract_pages(self): pass
-    def parse_page_range(self): pass
-    def extract_single_page_with_pypdf2(self): pass
-    def select_pdf_to_split(self): pass
-    def count_pages(self): return 0
-    def extract_pages_with_pypdf2(self): pass
-    def set_page_range(self): pass
-
-# Import tab setup functions with fallback
-try:
-    from tabs.main_tab import setup_main_tab
-    from tabs.convert_tab import setup_convert_tab
-    from tabs.compress_tab import setup_tools_tab
-    from tabs.merge_tab import setup_merge_tab
-    from tabs.split_tab import setup_split_tab
-except ImportError as e:
-    print(f"Error importing tab modules: {e}")
-    traceback.print_exc()
-    
-    # Create fallback functions
-    def setup_main_tab(self): pass
-    def setup_convert_tab(self): pass
-    def setup_tools_tab(self): pass
-    def setup_merge_tab(self): pass
-    def setup_split_tab(self): pass
-
-# Import utility functions with fallback
-try:
-    from utils.developer import add_developer_credit
-except ImportError:
-    def add_developer_credit(self): pass
-
-try:
-    from utils.check_dependencies import check_dependencies
-except ImportError:
-    def check_dependencies(self): pass
-
-try:
-    from utils.image_tool import select_images, prev_image, next_image, update_picture_box, rotate_image
-    from utils.image_tool import on_listbox_select, move_up, move_down, delete_image, reset_inputs, wheelEvent
-except ImportError:
-    def select_images(self): pass
-    def prev_image(self): pass
-    def next_image(self): pass
-    def update_picture_box(self): pass
-    def rotate_image(self): pass
-    def on_listbox_select(self): pass
-    def move_up(self): pass
-    def move_down(self): pass
-    def delete_image(self): pass
-    def reset_inputs(self): pass
-    def wheelEvent(self, event): pass
+# Import utility functions
+from utils.developer import add_developer_credit
+from utils.check_dependencies import check_dependencies
+from utils.image_tool import select_images, prev_image, next_image, update_picture_box, rotate_image
+from utils.image_tool import on_listbox_select, move_up, move_down, delete_image, reset_inputs, wheelEvent
 
 class PdfManager(QMainWindow):
     def __init__(self):
@@ -230,7 +83,7 @@ class PdfManager(QMainWindow):
                 icon_found = True
                 print(f"Icon loaded from: {icon_path}")
                 break
-            
+                
         if not icon_found:
             print("Warning: Application icon could not be found at any of these locations:")
             for path in icon_paths:

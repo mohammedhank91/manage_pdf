@@ -20,43 +20,44 @@ jobs:
           key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
           restore-keys: |
             ${{ runner.os }}-pip-
-
+    
       - name: Setup Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.13'
-
+    
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
+          pip install pyinstaller
           pip install -r requirements.txt
-
-      - name: Download ImageMagick Portable
+    
+      - name: Download and extract ImageMagick Portable
         shell: pwsh
         run: |
-          Invoke-WebRequest -Uri "https://imagemagick.org/archive/binaries/ImageMagick-7.1.1-47-portable-Q16-x64.zip" -OutFile "imagemagick.zip"
-          Expand-Archive -Path "imagemagick.zip" -DestinationPath "imagick_portable_64" -Force
-          Get-ChildItem -Path "imagick_portable_64" -Recurse | Select-Object -First 10
-
-      - name: Download Poppler
+          curl -sL "https://imagemagick.org/archive/binaries/ImageMagick-7.1.1-47-portable-Q16-x64.zip" -o imagick.zip
+          Expand-Archive -Path imagick.zip -DestinationPath imagick_portable_64 -Force
+    
+      - name: Download and extract Poppler Portable
         shell: pwsh
         run: |
-          Invoke-WebRequest -Uri "https://github.com/oschwartz10612/poppler-windows/releases/download/v24.02.0-0/Release-24.02.0-0.zip" -OutFile "poppler.zip"
-          New-Item -Path "poppler_portable_64" -ItemType Directory -Force
-          Expand-Archive -Path "poppler.zip" -DestinationPath "poppler_portable_64" -Force
-          Get-ChildItem -Path "poppler_portable_64" -Recurse | Select-Object -First 10
-
-      - name: Build executable
-        run: python build_tools/build_with_pyinstaller.py
-
-      - name: Upload build artifacts (dist & tools)
+          curl -sL "https://github.com/oschwartz10612/poppler-windows/releases/download/v24.02.0-0/Release-24.02.0-0.zip" -o poppler.zip
+          New-Item -ItemType Directory -Path poppler_portable_64 -Force
+          Expand-Archive -Path poppler.zip -DestinationPath poppler_portable_64 -Force
+    
+      - name: Build executable (windowed)
+        run: |
+          python build_tools/build_with_pyinstaller.py --windowed
+    
+      - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
           name: PDFManager-artifacts
           path: |
-            dist
-            imagick_portable_64
-            poppler_portable_64
+            build/
+            dist/
+            imagick_portable_64/
+            poppler_portable_64/
 
   installer:
     runs-on: windows-latest
@@ -65,20 +66,20 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      - name: Download build artifacts (dist & tools)
+      - name: Download build artifacts
         uses: actions/download-artifact@v4
         with:
           name: PDFManager-artifacts
           path: .
-
+    
       - name: Install Inno Setup
         run: choco install innosetup -y --no-progress
-
+    
       - name: Build installer
         working-directory: build_tools
         run: iscc PDFManager_PyInstaller_Setup.iss
-
-      - name: Upload installer artifact
+    
+      - name: Upload installer
         uses: actions/upload-artifact@v4
         with:
           name: PDFManager-installer

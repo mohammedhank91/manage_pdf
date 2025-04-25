@@ -1,108 +1,126 @@
-"""
-Build script for PDF Manager using PyInstaller
-This script will create a standalone executable that includes ImageMagick and Poppler
-"""
-import os
+# build_tools/build_with_pyinstaller.py
+#!/usr/bin/env python3
 import sys
-import shutil
+import os
 import subprocess
-import platform
-import site
+import logging
 from pathlib import Path
+import argparse
 
-# Ensure working directory is the project root
-project_root = Path(__file__).parent.parent.absolute()
-os.chdir(project_root)
+# Determine project root (one level up from this script)
+project_root = Path(__file__).resolve().parent.parent
 
-print("=" * 60)
-print("PDF Manager - PyInstaller Build Script")
-print("=" * 60)
 
-# Verify dependencies are installed
-try:
-    import PyInstaller  # noqa: F401
-except ImportError:
-    print("Installing PyInstaller...")
-    subprocess.check_call([sys.executable, "-m", "pip", "install", "pyinstaller"])
+def ensure_tool_installed(module_name: str):
+    try:
+        __import__(module_name)
+    except ImportError:
+        logging.info(f"Installing {module_name}... Accessing PyPI.")
+        subprocess.check_call([sys.executable, "-m", "pip", "install", module_name])
 
-# Check for ImageMagick and Poppler
-imagick_dir = project_root / "imagick_portable_64"
-poppler_dir = project_root / "poppler_portable_64"
-icon_file = project_root / "src" / "resources" / "manage_pdf.ico"
 
-if not imagick_dir.exists():
-    print(f"WARNING: ImageMagick directory not found at {imagick_dir}")
-if not poppler_dir.exists():
-    print(f"WARNING: Poppler directory not found at {poppler_dir}")
+def has_executable(directory: Path, exec_names: list[str]) -> bool:
+    """
+    Check for executables in directory, its 'bin', or 'library/bin'.
+    """
+    for name in exec_names:
+        for sub in [directory, directory / 'bin', directory / 'library' / 'bin']:
+            candidate = sub / name
+            if candidate.exists():
+                logging.info(f"Found {name} at {candidate}")
+                return True
+    logging.warning(f"No executables {exec_names} found in {directory}")
+    return False
 
-# Paths
-script_path = str(project_root / "src" / "pdf_manage.py").replace("\\", "/")
-icon_path = str(icon_file).replace("\\", "/")
-work_path = str(project_root / "build").replace("\\", "/")
-dist_path = str(project_root / "dist").replace("\\", "/")
 
-# Build PyInstaller command
-pyinstaller_cmd = [
-    sys.executable,
-    "-m",
-    "PyInstaller",
-    "--name=PDFManager",
-    "--clean",
-    "--onefile",  # Use one-file format for less complicated distribution
-    "--windowed",
-    f"--icon={icon_path}",
-    f"--workpath={work_path}",
-    f"--distpath={dist_path}",
-    "--noconfirm",
-    "--log-level=DEBUG",  # Add debug logging
-    # Add all source directories to Python's module search path
-    f"--paths={str(project_root / 'src').replace('\\', '/')}",
-    # Package modules as data files
-    f"--add-data={str(project_root / 'src/utils').replace('\\', '/')}{os.pathsep}utils",
-    f"--add-data={str(project_root / 'src/tabs').replace('\\', '/')}{os.pathsep}tabs",
-    f"--add-data={str(project_root / 'src/resources').replace('\\', '/')}{os.pathsep}resources",
-    # Add core imports
-    "--hidden-import=PyQt6",
-    "--hidden-import=PyQt6.QtWidgets",
-    "--hidden-import=PyQt6.QtGui",
-    "--hidden-import=PyQt6.QtCore",
-    # Explicitly import the main packages
-    "--hidden-import=utils",
-    "--hidden-import=tabs",
-    # Force recursive imports for all modules
-    "--collect-all=utils", 
-    "--collect-all=tabs",
-    # Exclude unnecessary Qt binding
-    "--exclude-module=PyQt5",
-]
+def build_executable(
+    script: Path,
+    icon: Path,
+    work_dir: Path,
+    dist_dir: Path,
+    extras: list[tuple[str, str]],
+    name: str = "PDFManager",
+    windowed: bool = True,
+):
+    cmd = [sys.executable, "-m", "PyInstaller", f"--name={name}", "--clean", "--noconfirm"]
+    if windowed:
+        cmd.append("--windowed")
+        # no console
+        cmd.append("--noconsole")
+    if icon.exists():
+        cmd.append(f"--icon={icon}")
+    cmd += [f"--workpath={work_dir}", f"--distpath={dist_dir}"]
 
-# Include ImageMagick and Poppler
-if imagick_dir.exists():
-    pyinstaller_cmd.append(f"--add-data={str(imagick_dir).replace('\\', '/')}{os.pathsep}imagick_portable_64")
-if poppler_dir.exists():
-    pyinstaller_cmd.append(f"--add-data={str(poppler_dir).replace('\\', '/')}{os.pathsep}poppler_portable_64")
+    # Hidden imports for Qt and PDF tools
+    hidden = [
+        "PIL", "PyPDF2", "pikepdf", "pdf2image", "xml", "xml.dom",
+        "PyQt6", "PyQt6.QtCore", "PyQt6.QtGui", "PyQt6.QtWidgets"
+    ]
+    for module in hidden:
+        cmd.append(f"--hidden-import={module}")
 
-# Add script to end
-pyinstaller_cmd.append(script_path)
+    # Include portable ImageMagick/Poppler
+    for src, dest in extras:
+        cmd.append(f"--add-data={src}{os.pathsep}{dest}")
 
-print("Running PyInstaller with command:")
-print(" ".join(pyinstaller_cmd))
+    # Include entire src/ package so your utils/ and tabs/ are bundled
+    cmd.append(f"--add-data={str(project_root/'src')}{os.pathsep}src")
 
-# Execute build with detailed error capture
-try:
-    result = subprocess.run(pyinstaller_cmd, capture_output=True, text=True)
+    # Finally, point to the launcher script
+    cmd.append(str(script))
+
+    logging.info("Running PyInstaller: %s", " ".join(cmd))
+    result = subprocess.run(cmd, capture_output=True, text=True)
     if result.returncode != 0:
-        print(f"\nBuild failed with return code: {result.returncode}")
-        print("\nSTDOUT:")
-        print(result.stdout)
-        print("\nSTDERR:")
-        print(result.stderr)
-        sys.exit(1)
-    else:
-        print("\nBuild successful!")
-        print(f"Executable created at: {dist_path}/PDFManager/PDFManager.exe")
-        print("\nTo create an installer, run:")
-        print(f"iscc \"{project_root / 'build_tools' / 'PDFManager_PyInstaller_Setup.iss'}\"")
-except Exception as e:
-    print(f"Error building executable: {e}")
-    sys.exit(1)
+        logging.error("Build failed (code %s)\nSTDOUT: %s\nSTDERR: %s",
+                       result.returncode, result.stdout, result.stderr)
+        sys.exit(result.returncode)
+    logging.info("Build succeeded: %s/%s", dist_dir, name)
+
+
+if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
+
+    parser = argparse.ArgumentParser(description="Build PDFManager standalone executable.")
+    parser.add_argument("--icon", type=Path,
+                        default=project_root / "src" / "resources" / "manage_pdf.ico",
+                        help="Path to the application icon.")
+    parser.add_argument("--imagick", type=Path,
+                        default=project_root / "imagick_portable_64",
+                        help="Directory of portable ImageMagick.")
+    parser.add_argument("--poppler", type=Path,
+                        default=project_root / "poppler_portable_64",
+                        help="Directory of portable Poppler.")
+    parser.add_argument("--workpath", type=Path, default=project_root / "build",
+                        help="PyInstaller work path.")
+    parser.add_argument("--distpath", type=Path, default=project_root / "dist",
+                        help="PyInstaller dist path.")
+    parser.add_argument("--name", default="PDFManager",
+                        help="Name of the generated executable.")
+    parser.add_argument("--windowed", action="store_true",
+                        help="Build as a windowed (no console) application.")
+    args = parser.parse_args()
+
+    ensure_tool_installed("PyInstaller")
+
+    extras: list[tuple[str, str]] = []
+    # ImageMagick
+    if args.imagick.exists() and has_executable(args.imagick, ["magick.exe", "convert.exe"]):
+        extras.append((str(args.imagick), "imagick_portable_64"))
+    # Poppler
+    if args.poppler.exists() and has_executable(args.poppler, ["pdftoppm.exe", "pdftocairo.exe"]):
+        extras.append((str(args.poppler), "poppler_portable_64"))
+
+    # Build with our run_app launcher
+    launcher = project_root / "run_app.py"
+    build_executable(
+        script=launcher,
+        icon=args.icon,
+        work_dir=args.workpath,
+        dist_dir=args.distpath,
+        extras=extras,
+        name=args.name,
+        windowed=args.windowed,
+    )
+
+

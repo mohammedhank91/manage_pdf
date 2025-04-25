@@ -6,11 +6,10 @@
 #define MyAppPublisher    "Mohammed Hank"
 #define MyAppURL          "https://github.com/mohammedhank91"
 #define MyAppExeName      "PDFManager.exe"
-#define MyAppIcon         "..\src\resources\manage_pdf.ico"
-#define MyAppLicenseFile  "..\LICENSE.txt"
+#define MyAppIcon         "..\\src\\resources\\manage_pdf.ico"
+#define MyAppLicenseFile  "..\\LICENSE.txt"
 
 [Setup]
-; Basic Application Information
 AppId={{F19E2C34-317D-4B27-9BEF-1A12D8D1E9A8}}
 AppName={#MyAppName}
 AppVersion={#MyAppVersion}
@@ -18,25 +17,20 @@ AppPublisher={#MyAppPublisher}
 AppPublisherURL={#MyAppURL}
 AppSupportURL={#MyAppURL}
 AppUpdatesURL={#MyAppURL}/releases
-; Installer Settings
 DisableStartupPrompt=yes
 DefaultDirName={autopf}\{#MyAppName}
 DefaultGroupName={#MyAppName}
 OutputDir=..\installer_64
-OutputBaseFilename=PDFManager_Setup_v{#MyAppVersion}
+OutputBaseFilename=PDFManager_Setup_v{#MyAppVersion}_x64
 Compression=lzma2/ultra64
 SolidCompression=yes
-; Architecture
 ArchitecturesAllowed=x86 x64
 ArchitecturesInstallIn64BitMode=x64
-; UI Style
 WizardStyle=modern
 WizardSmallImageFile=..\src\resources\wizard_small.bmp
-; Icon & License
 SetupIconFile={#MyAppIcon}
 UninstallDisplayIcon={app}\\manage_pdf.ico
 LicenseFile={#MyAppLicenseFile}
-; System Requirements
 MinVersion=6.1
 PrivilegesRequired=admin
 
@@ -53,18 +47,11 @@ Name: "desktopicon"; Description: "Create a &desktop icon"; GroupDescription: "A
 Name: "quicklaunchicon"; Description: "Create a Quick&Launch icon"; GroupDescription: "Additional icons:"; Flags: unchecked
 
 [Files]
-; Core application files (from dist folder) - updated for onefile build
-Source: "{#SourceDir}\\dist\\PDFManager.exe"; DestDir: "{app}"; Flags: ignoreversion; Components: core
+; Copy the entire PyInstaller output folder (includes exe, libs, data, portable tools)
+Source: "{#SourceDir}\\dist\\PDFManager\\*"; DestDir: "{app}"; Flags: recursesubdirs ignoreversion createallsubdirs; Components: core tools
+
+; Application icon
 Source: "{#MyAppIcon}"; DestDir: "{app}"; DestName: "manage_pdf.ico"; Flags: ignoreversion; Components: core
-
-; Add required utils and tabs directories - for module structure
-Source: "{#SourceDir}\\src\\utils\\*"; DestDir: "{app}\\utils"; Flags: recursesubdirs ignoreversion createallsubdirs; Components: core
-Source: "{#SourceDir}\\src\\tabs\\*"; DestDir: "{app}\\tabs"; Flags: recursesubdirs ignoreversion createallsubdirs; Components: core
-Source: "{#SourceDir}\\src\\resources\\*"; DestDir: "{app}\\resources"; Flags: recursesubdirs ignoreversion createallsubdirs; Components: core
-
-; Portable tools (optional) — from repo root
-Source: "{#SourceDir}\\imagick_portable_64\\*"; DestDir: "{app}\\imagick_portable_64"; Flags: recursesubdirs ignoreversion createallsubdirs; Components: tools
-Source: "{#SourceDir}\\poppler_portable_64\\*";   DestDir: "{app}\\poppler_portable_64";   Flags: recursesubdirs ignoreversion createallsubdirs; Components: tools
 
 [Icons]
 Name: "{group}\\{#MyAppName}"; Filename: "{app}\\{#MyAppExeName}"; IconFilename: "{app}\\manage_pdf.ico"; Components: core
@@ -80,15 +67,14 @@ Root: HKCR; Subkey: "PDFManager.pdf\\DefaultIcon"; ValueType: string; ValueName:
 Root: HKCR; Subkey: "PDFManager.pdf\\shell\\open\\command"; ValueType: string; ValueName: ""; ValueData: """{app}\\{#MyAppExeName}"" ""%1"""; Flags: uninsdeletevalue
 
 [InstallDelete]
-Type: files; Name: "{app}\\\\temp\\*.*"
-Type: dirifempty; Name: "{app}\\\\temp"
+Type: files; Name: "{app}\\temp\\*.*"
+Type: dirifempty; Name: "{app}\\temp"
 
 [UninstallDelete]
 Type: files; Name: "{userappdata}\\PDF Manager\\*.*"
 Type: dirifempty; Name: "{userappdata}\\PDF Manager"
 
 [Code]
-// Prevent installation if application is running
 function InitializeSetup(): Boolean;
 begin
   if CheckForMutexes('PDFManagerMutex') then
@@ -100,11 +86,8 @@ begin
     Result := True;
 end;
 
-// Show custom welcome message
 procedure CurPageChanged(CurPageID: Integer);
 begin
   if CurPageID = wpWelcome then
     MsgBox('Welcome to the ' + ExpandConstant('{#MyAppName} Setup') + ' wizard.', mbInformation, MB_OK);
 end;
-
-// End of script
