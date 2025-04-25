@@ -19,7 +19,7 @@ jobs:
           path: ~/.cache/pip
           key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
           restore-keys: |
-            ${{ runner.os }}-pip-
+            - ${{ runner.os }}-pip-
     
       - name: Setup Python
         uses: actions/setup-python@v4
@@ -38,12 +38,26 @@ jobs:
           curl -sL "https://imagemagick.org/archive/binaries/ImageMagick-7.1.1-47-portable-Q16-x64.zip" -o imagick.zip
           Expand-Archive -Path imagick.zip -DestinationPath imagick_portable_64 -Force
     
+      - name: Flatten ImageMagick directory
+        shell: pwsh
+        run: |
+          $sub = Get-ChildItem imagick_portable_64 -Directory | Select-Object -First 1
+          Move-Item -Path "$($sub.FullName)\*" -Destination imagick_portable_64 -Force
+          Remove-Item -Path $sub.FullName -Recurse -Force
+    
       - name: Download and extract Poppler Portable
         shell: pwsh
         run: |
           curl -sL "https://github.com/oschwartz10612/poppler-windows/releases/download/v24.02.0-0/Release-24.02.0-0.zip" -o poppler.zip
-          New-Item -ItemType Directory -Path poppler_portable_64 -Force
           Expand-Archive -Path poppler.zip -DestinationPath poppler_portable_64 -Force
+    
+      - name: Flatten Poppler directory
+        shell: pwsh
+        run: |
+          $sub = Get-ChildItem poppler_portable_64 -Directory | Select-Object -First 1
+          Move-Item -Path "$($sub.FullName)\library\bin\*" -Destination poppler_portable_64\library\bin -Force ;
+          Move-Item -Path "$($sub.FullName)\*" -Destination poppler_portable_64 -Force
+          Remove-Item -Path $sub.FullName -Recurse -Force
     
       - name: Build executable (windowed)
         run: |
@@ -71,14 +85,14 @@ jobs:
         with:
           name: PDFManager-artifacts
           path: .
-    
+
       - name: Install Inno Setup
         run: choco install innosetup -y --no-progress
-    
+
       - name: Build installer
         working-directory: build_tools
         run: iscc PDFManager_PyInstaller_Setup.iss
-    
+
       - name: Upload installer
         uses: actions/upload-artifact@v4
         with:
