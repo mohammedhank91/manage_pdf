@@ -62,6 +62,8 @@ pyinstaller_cmd = [
     "--hidden-import=xml.dom",
     # Exclude unnecessary Qt binding
     "--exclude-module=PyQt5",
+    # Add utils submodules
+    "--collect-submodules=utils",
     # Add src directory to module search path so internal utils packages are found
     f"--paths={str(project_root / 'src').replace('\\', '/')}",
 ]
