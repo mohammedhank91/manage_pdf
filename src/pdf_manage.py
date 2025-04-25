@@ -34,6 +34,19 @@ else:
     current_dir = os.path.dirname(os.path.abspath(__file__))
     if current_dir not in sys.path:
         sys.path.insert(0, current_dir)
+    
+    # Define utils_dir and tabs_dir for the script mode too
+    utils_dir = os.path.join(current_dir, 'utils')
+    tabs_dir = os.path.join(current_dir, 'tabs')
+    
+    # Add these directories to sys.path if they exist
+    if os.path.exists(utils_dir) and utils_dir not in sys.path:
+        sys.path.insert(0, utils_dir)
+    if os.path.exists(tabs_dir) and tabs_dir not in sys.path:
+        sys.path.insert(0, tabs_dir)
+    
+    print(f"Running in script mode. Current directory: {current_dir}")
+    print(f"Python path: {sys.path}")
 
 # Set up error handling for GUI imports
 try:

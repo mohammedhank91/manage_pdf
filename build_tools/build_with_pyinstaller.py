@@ -48,40 +48,30 @@ pyinstaller_cmd = [
     "PyInstaller",
     "--name=PDFManager",
     "--clean",
-    "--onedir",
+    "--onefile",  # Use one-file format for less complicated distribution
     "--windowed",
     f"--icon={icon_path}",
     f"--workpath={work_path}",
     f"--distpath={dist_path}",
     "--noconfirm",
     "--log-level=DEBUG",  # Add debug logging
-    # Add src directory to Python's module search path
+    # Add all source directories to Python's module search path
     f"--paths={str(project_root / 'src').replace('\\', '/')}",
-    # Add the whole src package to the build
+    # Package modules as data files
     f"--add-data={str(project_root / 'src/utils').replace('\\', '/')}{os.pathsep}utils",
     f"--add-data={str(project_root / 'src/tabs').replace('\\', '/')}{os.pathsep}tabs",
-    # Explicit imports for all modules
-    "--hidden-import=utils",
-    "--hidden-import=utils.convert",
-    "--hidden-import=utils.merge",
-    "--hidden-import=utils.edit_pdf",
-    "--hidden-import=utils.compress",
-    "--hidden-import=utils.drag_drop",
-    "--hidden-import=utils.magick",
-    "--hidden-import=utils.split",
-    "--hidden-import=utils.developer",
-    "--hidden-import=utils.check_dependencies",
-    "--hidden-import=utils.image_tool",
-    "--hidden-import=utils.style",
-    "--hidden-import=tabs.main_tab",
-    "--hidden-import=tabs.convert_tab",
-    "--hidden-import=tabs.compress_tab",
-    "--hidden-import=tabs.merge_tab",
-    "--hidden-import=tabs.split_tab",
+    f"--add-data={str(project_root / 'src/resources').replace('\\', '/')}{os.pathsep}resources",
+    # Add core imports
     "--hidden-import=PyQt6",
     "--hidden-import=PyQt6.QtWidgets",
     "--hidden-import=PyQt6.QtGui",
     "--hidden-import=PyQt6.QtCore",
+    # Explicitly import the main packages
+    "--hidden-import=utils",
+    "--hidden-import=tabs",
+    # Force recursive imports for all modules
+    "--collect-all=utils", 
+    "--collect-all=tabs",
     # Exclude unnecessary Qt binding
     "--exclude-module=PyQt5",
 ]
