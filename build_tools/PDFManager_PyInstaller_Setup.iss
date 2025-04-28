@@ -3,7 +3,7 @@
 #define SourceDir        ".."
 #define MyAppName         "PDF Manager"
 #define MyAppVersion      "1.0.0"
-#define MyAppPublisher    "Mohammed Hank"
+#define MyAppPublisher    "Mohammed Hank91"
 #define MyAppURL          "https://github.com/mohammedhank91"
 #define MyAppExeName      "PDFManager.exe"
 #define MyAppIcon         "..\\src\\resources\\manage_pdf.ico"

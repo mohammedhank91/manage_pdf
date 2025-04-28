@@ -13,28 +13,28 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtGui import QIcon, QPixmap
 from PyQt6.QtCore import Qt, QSize
 
-from utils.style import apply_modern_style
-from utils.convert import convert_to_pdf
-from utils.merge import merge_pdfs, update_merge_summary, add_pdf, remove_pdf, move_pdf_up, move_pdf_down
-from utils.edit_pdf import setup_pdf_editor
-from utils.compress import select_pdf, preview_pdf, print_pdf, compress_pdf
-from utils.convert import update_conversion_ui, save_conversion_settings, load_conversion_settings
-from utils.drag_drop import setupDragDrop, dragEnterEvent, dropEvent
-from utils.magick import find_imagick, run_imagemagick
-from utils.split import extract_pages, parse_page_range, extract_single_page_with_pypdf2, select_pdf_to_split, count_pages, extract_pages_with_pypdf2, set_page_range
+from src.utils.style import apply_modern_style
+from src.utils.convert import convert_to_pdf
+from src.utils.merge import merge_pdfs, update_merge_summary, add_pdf, remove_pdf, move_pdf_up, move_pdf_down
+from src.utils.edit_pdf import setup_pdf_editor
+from src.utils.compress import select_pdf, preview_pdf, print_pdf, compress_pdf
+from src.utils.convert import update_conversion_ui, save_conversion_settings, load_conversion_settings
+from src.utils.drag_drop import setupDragDrop, dragEnterEvent, dropEvent
+from src.utils.magick import find_imagick, run_imagemagick
+from src.utils.split import extract_pages, parse_page_range, extract_single_page_with_pypdf2, select_pdf_to_split, count_pages, extract_pages_with_pypdf2, set_page_range
 
 # Import tab setup functions
-from tabs.main_tab import setup_main_tab
-from tabs.convert_tab import setup_convert_tab  
-from tabs.compress_tab import setup_tools_tab
-from tabs.merge_tab import setup_merge_tab
-from tabs.split_tab import setup_split_tab
+from src.tabs.main_tab import setup_main_tab
+from src.tabs.convert_tab import setup_convert_tab  
+from src.tabs.compress_tab import setup_tools_tab
+from src.tabs.merge_tab import setup_merge_tab
+from src.tabs.split_tab import setup_split_tab
 
 # Import utility functions
-from utils.developer import add_developer_credit
-from utils.check_dependencies import check_dependencies
-from utils.image_tool import select_images, prev_image, next_image, update_picture_box, rotate_image
-from utils.image_tool import on_listbox_select, move_up, move_down, delete_image, reset_inputs, wheelEvent
+from src.utils.developer import add_developer_credit
+from src.utils.check_dependencies import check_dependencies
+from src.utils.image_tool import select_images, prev_image, next_image, update_picture_box, rotate_image
+from src.utils.image_tool import on_listbox_select, move_up, move_down, delete_image, reset_inputs, wheelEvent
 
 class PdfManager(QMainWindow):
     def __init__(self):
@@ -65,7 +65,8 @@ class PdfManager(QMainWindow):
             self.base_path = os.path.abspath(os.path.dirname(__file__))
         
         # Configure ImageMagick path - first check for portable installation
-        self.imagick_path = types.MethodType(find_imagick, self)
+        self.find_imagick = types.MethodType(find_imagick, self)
+        self.run_imagemagick = types.MethodType(run_imagemagick, self)
         
         # Set application icon - try multiple potential locations
         icon_found = False
@@ -216,6 +217,7 @@ class PdfManager(QMainWindow):
         self.preview_pdf = types.MethodType(preview_pdf, self)
         self.print_pdf = types.MethodType(print_pdf, self)
         self.compress_pdf = types.MethodType(compress_pdf, self)
+        self.setup_pdf_editor = types.MethodType(setup_pdf_editor, self)
         
         # Set up each tab with widgets
         setup_main_tab(self)
@@ -234,82 +236,6 @@ class PdfManager(QMainWindow):
         """Return the base directory of the application."""
         return self.base_path
 
-    def run_imagemagick(self, cmd):
-        """Run an ImageMagick command with the portable executable if available."""
-        import os
-        import subprocess
-        import logging
-        import shutil
-        
-        # Always use portable version - no checking for system installation
-        portable_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 
-                                  "imagick_portable_64", "magick.exe")
-        
-        if os.path.exists(portable_path):
-            magick_path = portable_path
-            print(f"Using portable ImageMagick: {portable_path}")
-        else:
-            # Fallback if portable version is not found
-            magick_path = "magick"
-            print(f"Portable ImageMagick not found at {portable_path}, falling back to 'magick' command")
-            
-        # Replace 'magick' with the full path to the executable if needed
-        if magick_path != 'magick':
-            # Quote the path to handle spaces
-            if 'magick -' in cmd:
-                invocation = cmd.replace('magick -', f'"{magick_path}" -', 1)
-            elif cmd.startswith('magick '):
-                invocation = cmd.replace('magick ', f'"{magick_path}" ', 1)
-            else:
-                invocation = cmd
-        else:
-            # Just use the command as is
-            invocation = cmd
-        
-        print(f"Executing ImageMagick command: {invocation}")
-        
-        try:
-            # Set environment variables
-            env = os.environ.copy()
-            
-            # Simplify command for testing if there are issues
-            if " -page " in invocation and " -density " in invocation:
-                print("Simplifying command for better compatibility...")
-                # Remove complex options that might cause issues
-                invocation = invocation.replace(" -page ", " ")
-                
-            result = subprocess.run(
-                invocation, 
-                shell=True, 
-                stdout=subprocess.PIPE, 
-                stderr=subprocess.PIPE,
-                text=True,
-                check=True,
-                env=env
-            )
-            print("ImageMagick command executed successfully")
-            return result
-        except subprocess.CalledProcessError as e:
-            stderr = e.stderr if hasattr(e, 'stderr') else ""
-            stdout = e.stdout if hasattr(e, 'stdout') else ""
-            
-            # Show more detailed error information
-            error_info = f"Exit code: {e.returncode}\nStdout: {stdout}\nStderr: {stderr}"
-            logging.error(f"ImageMagick failed: {error_info}")
-            print(f"ImageMagick command failed: {error_info}")
-            
-            # Check for common error patterns
-            if "not recognized" in str(stderr).lower():
-                raise RuntimeError(
-                    f"ImageMagick not found. Please ensure the portable version is available in the imagick_portable_64 folder."
-                )
-            elif "cannot find the path" in str(stderr).lower():
-                raise RuntimeError(
-                    f"ImageMagick error: The system cannot find one of the paths in the command. Check that all files exist."
-                )
-            
-            # Generic error
-            raise RuntimeError(f"ImageMagick error: {stderr}")
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
