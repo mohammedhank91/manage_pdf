@@ -11,6 +11,7 @@ from PyQt6.QtWidgets import QFileDialog, QMessageBox, QDialog
 from PyQt6.QtPrintSupport import QPrinter, QPrintDialog
 from PyQt6.QtCore import QCoreApplication
 from PIL import Image
+from src.utils.pdf_viewer import show_pdf_viewer
 
 def select_pdf(self):
     """Select a PDF file for compression or preview"""
@@ -48,7 +49,6 @@ def preview_pdf(self):
     
     try:
         # Import and use our custom PDF viewer dialog
-        from utils.pdf_viewer import show_pdf_viewer
         show_pdf_viewer(self, self.latest_pdf)
         
         self.status_label.setText(f"Previewing {os.path.basename(self.latest_pdf)}")

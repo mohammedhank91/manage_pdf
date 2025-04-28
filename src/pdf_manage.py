@@ -22,6 +22,7 @@ from src.utils.convert import update_conversion_ui, save_conversion_settings, lo
 from src.utils.drag_drop import setupDragDrop, dragEnterEvent, dropEvent
 from src.utils.magick import find_imagick, run_imagemagick
 from src.utils.split import extract_pages, parse_page_range, extract_single_page_with_pypdf2, select_pdf_to_split, count_pages, extract_pages_with_pypdf2, set_page_range
+from src.utils.pdf_viewer import show_pdf_viewer
 
 # Import tab setup functions
 from src.tabs.main_tab import setup_main_tab
@@ -218,6 +219,7 @@ class PdfManager(QMainWindow):
         self.print_pdf = types.MethodType(print_pdf, self)
         self.compress_pdf = types.MethodType(compress_pdf, self)
         self.setup_pdf_editor = types.MethodType(setup_pdf_editor, self)
+        self.show_pdf_viewer = types.MethodType(show_pdf_viewer, self)
         
         # Set up each tab with widgets
         setup_main_tab(self)
