@@ -1,81 +1,114 @@
-name: Build and Package PDFManager
+name: CI / CD for PDFManager
 
 on:
   push:
-    branches: [ main ]
+    branches:
+      - main
+    paths-ignore:
+      - 'README.md'
+      - 'docs/**'
+      - '.github/**'
   pull_request:
-    branches: [ main ]
+    branches:
+      - main
+    paths-ignore:
+      - 'README.md'
+      - 'docs/**'
+      - '.github/**'
 
 jobs:
-  build:
+  lint:
+    name: Lint Python Code
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.13'
+      - name: Install flake8
+        run: |
+          python -m pip install --upgrade pip
+          pip install flake8
+      - name: Run flake8
+        run: flake8 src/
+
+  test:
+    name: Run Unit Tests
+    needs: lint
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.13'
+      - name: Install test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest
+      - name: Run pytest
+        run: pytest --maxfail=1 --disable-warnings -q
+
+  build-exe:
+    name: Build Windows Executable
+    needs: test
     runs-on: windows-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Get pip cache directory
-        id: pip-cache-dir
-        shell: pwsh
-        run: |
-          echo "dir=$(pip cache dir)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
-
       - name: Cache pip
         uses: actions/cache@v4
+        id: cache-pip
         with:
-          path: ${{ steps.pip-cache-dir.outputs.dir }}
+          path: ~/.cache/pip
           key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-pip-
-    
+          restore-keys:
+            - ${{ runner.os }}-pip-
+
+      - name: Cache PyInstaller output
+        uses: actions/cache@v4
+        id: cache-pyi
+        with:
+          path: |
+            build/
+            dist/
+          key: ${{ runner.os }}-pyinstaller-${{ hashFiles('src/**','requirements.txt') }}
+
       - name: Setup Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.13'
-    
+
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
+          pip install pyinstaller
           pip install -r requirements.txt
-    
-      - name: Download and extract ImageMagick Portable
+
+      - name: Download and extract tools
+        if: steps.cache-pyi.outputs.cache-hit != 'true'
         shell: pwsh
         run: |
+          # ImageMagick
           curl -sL "https://imagemagick.org/archive/binaries/ImageMagick-7.1.1-47-portable-Q16-x64.zip" -o imagick.zip
-          New-Item -ItemType Directory -Path imagick_portable_64 -Force
-          Expand-Archive -Path imagick.zip -DestinationPath imagick_portable_64 -Force
-          # Ensure magick.exe is in the root directory (not in a subdirectory)
-          $magickExe = Get-ChildItem -Path imagick_portable_64 -Recurse -Filter "magick.exe" | Select-Object -First 1 -ExpandProperty FullName
-          if ($magickExe -and !(Test-Path "imagick_portable_64\magick.exe")) {
-            Copy-Item -Path $magickExe -Destination "imagick_portable_64\magick.exe" -Force
-          }
-          Write-Host "ImageMagick location check:"
-          Get-ChildItem -Path imagick_portable_64 -Filter "magick.exe" | Select-Object FullName
-    
-      - name: Download and extract Poppler Portable
-        shell: pwsh
-        run: |
+          Expand-Archive imagick.zip -DestinationPath imagick_portable_64 -Force
+          $exe = Get-ChildItem imagick_portable_64 -Recurse -Filter magick.exe | Select-Object -First 1
+          Copy-Item $exe.FullName -Destination imagick_portable_64\magick.exe -Force
+
+          # Poppler
           curl -sL "https://github.com/oschwartz10612/poppler-windows/releases/download/v24.02.0-0/Release-24.02.0-0.zip" -o poppler.zip
-          New-Item -ItemType Directory -Path poppler_portable_64 -Force
-          Expand-Archive -Path poppler.zip -DestinationPath poppler_portable_64 -Force
-          # Create library/bin directory if it doesn't exist
+          Expand-Archive poppler.zip -DestinationPath poppler_portable_64 -Force
           New-Item -ItemType Directory -Path poppler_portable_64\library\bin -Force
-          # Find pdftoppm.exe anywhere in the extracted files
-          $pdftoppmExe = Get-ChildItem -Path poppler_portable_64 -Recurse -Filter "pdftoppm.exe" | Select-Object -First 1 -ExpandProperty FullName
-          if ($pdftoppmExe -and !(Test-Path "poppler_portable_64\library\bin\pdftoppm.exe")) {
-            Copy-Item -Path $pdftoppmExe -Destination "poppler_portable_64\library\bin\pdftoppm.exe" -Force
+          foreach ($tool in 'pdftoppm.exe','pdftocairo.exe') {
+            $f = Get-ChildItem poppler_portable_64 -Recurse -Filter $tool | Select-Object -First 1
+            Copy-Item $f.FullName -Destination poppler_portable_64\library\bin\$tool -Force
           }
-          # Do the same for pdftocairo.exe
-          $pdftocairoExe = Get-ChildItem -Path poppler_portable_64 -Recurse -Filter "pdftocairo.exe" | Select-Object -First 1 -ExpandProperty FullName
-          if ($pdftocairoExe -and !(Test-Path "poppler_portable_64\library\bin\pdftocairo.exe")) {
-            Copy-Item -Path $pdftocairoExe -Destination "poppler_portable_64\library\bin\pdftocairo.exe" -Force
-          }
-          Write-Host "Poppler location check:"
-          Get-ChildItem -Path poppler_portable_64\library\bin -Filter "*.exe" | Select-Object FullName
-    
-      - name: Build executable (windowed)
-        run: |
-          python build_tools/build_with_pyinstaller.py --windowed
-    
+
+      - name: Build executable
+        if: steps.cache-pyi.outputs.cache-hit != 'true'
+        run: python build_tools/build_with_pyinstaller.py --windowed
+
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -85,28 +118,25 @@ jobs:
             dist/
             imagick_portable_64/
             poppler_portable_64/
-  installer:
-    runs-on: windows-latest
-    needs: build
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
 
-      - name: Download build artifacts
-        uses: actions/download-artifact@v4
+  package-installer:
+    name: Create Windows Installer
+    needs: build-exe
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
         with:
           name: PDFManager-artifacts
           path: .
-    
       - name: Install Inno Setup
         run: choco install innosetup -y --no-progress
-    
       - name: Build installer
         working-directory: build_tools
         run: iscc PDFManager_PyInstaller_Setup.iss
-    
       - name: Upload installer
         uses: actions/upload-artifact@v4
         with:
           name: PDFManager-installer
           path: installer_64/**/*.exe
+
