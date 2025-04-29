@@ -5,7 +5,6 @@ from PIL import Image, ImageTk
 import subprocess
 import math
 import logging
-from datetime import datetime
 
 
 class ImageToPdfConverter:
