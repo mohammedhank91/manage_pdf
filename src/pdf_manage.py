@@ -2,16 +2,14 @@ import sys
 import os
 import logging
 import types
-import shutil
 
 from PyQt6.QtWidgets import (
-    QApplication, QMainWindow, QLabel, QPushButton, QCheckBox, 
-    QSpinBox, QComboBox, QFileDialog, QMessageBox, QProgressBar, 
-    QListWidget, QFrame, QVBoxLayout, QHBoxLayout, QWidget, 
-    QTabWidget, QScrollArea, QListWidgetItem, QGridLayout, QGroupBox, QLineEdit, QRadioButton, QInputDialog
+    QApplication, QMainWindow, QLabel, QPushButton, QCheckBox,
+    QSpinBox, QComboBox, QFileDialog, QMessageBox, QProgressBar,
+    QListWidget, QVBoxLayout, QWidget, QTabWidget
 )
-from PyQt6.QtGui import QIcon, QPixmap
-from PyQt6.QtCore import Qt, QSize
+from PyQt6.QtGui import QIcon
+from PyQt6.QtCore import Qt
 
 from src.utils.style import apply_modern_style
 from src.utils.convert import convert_to_pdf
@@ -25,7 +23,7 @@ from src.utils.split import extract_pages, parse_page_range, extract_single_page
 
 # Import tab setup functions
 from src.tabs.main_tab import setup_main_tab
-from src.tabs.convert_tab import setup_convert_tab  
+from src.tabs.convert_tab import setup_convert_tab
 from src.tabs.compress_tab import setup_tools_tab
 from src.tabs.merge_tab import setup_merge_tab
 from src.tabs.split_tab import setup_split_tab
@@ -38,21 +36,22 @@ from src.utils.check_dependencies import check_dependencies
 from src.utils.image_tool import select_images, prev_image, next_image, update_picture_box, rotate_image
 from src.utils.image_tool import on_listbox_select, move_up, move_down, delete_image, reset_inputs, wheelEvent
 
+
 class PdfManager(QMainWindow):
     def __init__(self):
         """Initialize the Image to PDF converter."""
         # Call parent constructor
         super().__init__()
-        
+
         # Initialize UI
         self.setWindowTitle("PDF Manager | by mohammedhank91")
         self.setGeometry(100, 100, 900, 650)  # Slightly smaller default size
-        
+
         # Explicitly set window to be resizable
         self.setWindowFlags(self.windowFlags() & ~Qt.WindowType.WindowMaximizeButtonHint)
         self.setWindowFlags(self.windowFlags() | Qt.WindowType.WindowMaximizeButtonHint)
         self.setMinimumSize(850, 690)  # Set reasonable minimum window size
-        
+
         # Determine the application base path (works in both script and frozen mode)
         if getattr(sys, 'frozen', False):
             # We're running in a frozen/compiled environment
@@ -65,11 +64,11 @@ class PdfManager(QMainWindow):
         else:
             # Running as script
             self.base_path = os.path.abspath(os.path.dirname(__file__))
-        
+
         # Configure ImageMagick path - first check for portable installation
         self.find_imagick = types.MethodType(find_imagick, self)
         self.run_imagemagick = types.MethodType(run_imagemagick, self)
-        
+
         # Set application icon - try multiple potential locations
         icon_found = False
         icon_paths = [
@@ -79,19 +78,19 @@ class PdfManager(QMainWindow):
             os.path.join(os.path.dirname(self.base_path), 'manage_pdf.ico'),  # Icon in parent directory
             os.path.abspath('manage_pdf.ico'),  # Icon in current working directory
         ]
-        
+
         for icon_path in icon_paths:
             if os.path.exists(icon_path):
                 self.setWindowIcon(QIcon(icon_path))
                 icon_found = True
                 print(f"Icon loaded from: {icon_path}")
                 break
-                
+
         if not icon_found:
             print("Warning: Application icon could not be found at any of these locations:")
             for path in icon_paths:
                 print(f"  - {path}")
-        
+
         # Create a mutex/resource identifier for the application
         # This helps prevent multiple instances and is used by the installer
         if sys.platform == 'win32':
@@ -100,41 +99,41 @@ class PdfManager(QMainWindow):
                 self.app_mutex = ctypes.windll.kernel32.CreateMutexW(None, False, "PDFManagerMutex")
             except Exception as e:
                 logging.warning(f"Could not create application mutex: {str(e)}")
-        
+
         # call to setupdragdrop
         self.setupDragDrop = types.MethodType(setupDragDrop, self)
         self.dragEnterEvent = types.MethodType(dragEnterEvent, self)
         self.dropEvent = types.MethodType(dropEvent, self)
         self.setupDragDrop()
-        
+
         # Apply modern styling
         apply_modern_style(self)
-        
+
         # Global variables
         self.zoom_factor = 1.0
         self.latest_pdf = None
         self.selected_files = []
         self.rotations = {}  # Key: index, Value: rotation angle (0,90,180,270)
         self.current_index = 0
-        
+
         # Setup logging
         log_dir = os.path.join(os.environ.get('APPDATA', ''), 'PDF Manager')
         if not os.path.exists(log_dir):
             os.makedirs(log_dir, exist_ok=True)
         log_file = os.path.join(log_dir, 'error.log')
-        logging.basicConfig(filename=log_file, level=logging.ERROR, 
-                           format='%(asctime)s : %(message)s', 
-                           datefmt='%Y-%m-%d %H:%M:%S')
-        
+        logging.basicConfig(filename=log_file, level=logging.ERROR,
+                            format='%(asctime)s : %(message)s',
+                            datefmt='%Y-%m-%d %H:%M:%S')
+
         # Create central widget and tab layout
         self.central_widget = QWidget()
         self.setCentralWidget(self.central_widget)
         self.main_layout = QVBoxLayout(self.central_widget)
-        
+
         # Create tab widget
         self.tab_widget = QTabWidget()
         self.tab_widget.setDocumentMode(True)
-        
+
         # Create tabs
         self.main_tab = QWidget()
         self.convert_tab = QWidget()
@@ -142,7 +141,7 @@ class PdfManager(QMainWindow):
         self.merge_tab = QWidget()
         self.split_tab = QWidget()
         self.preview_tab = QWidget()  # New preview tab
-        
+
         # Add tabs to widget
         self.tab_widget.addTab(self.main_tab, "Main")
         self.tab_widget.addTab(self.convert_tab, "Convert")
@@ -150,34 +149,34 @@ class PdfManager(QMainWindow):
         self.tab_widget.addTab(self.merge_tab, "Merge PDFs")
         self.tab_widget.addTab(self.split_tab, "Split PDF")
         self.tab_widget.addTab(self.preview_tab, "PDF Viewer")  # New preview tab
-        
+
         # Add tab widget to main layout
         self.main_layout.addWidget(self.tab_widget)
-        
+
         # Create layouts for each tab
         self.main_tab_layout = QVBoxLayout(self.main_tab)
         self.convert_tab_layout = QVBoxLayout(self.convert_tab)
         self.tools_tab_layout = QVBoxLayout(self.tools_tab)
         self.merge_tab_layout = QVBoxLayout(self.merge_tab)
         self.split_tab_layout = QVBoxLayout(self.split_tab)
-        
+
         # Status bar at the bottom of main window (visible across all tabs)
         self.status_layout = QVBoxLayout()
-        
+
         # Status label
         self.status_label = QLabel("")
         self.status_label.setObjectName("statusLabel")
         self.status_layout.addWidget(self.status_label)
-        
+
         # Progress bar
         self.progress_bar = QProgressBar()
         self.progress_bar.setTextVisible(True)
         self.progress_bar.setObjectName("progressBar")
         self.status_layout.addWidget(self.progress_bar)
-        
+
         # Add status layout to main layout
         self.main_layout.addLayout(self.status_layout)
-        
+
         # Set up image handling methods
         self.select_images = types.MethodType(select_images, self)
         self.prev_image = types.MethodType(prev_image, self)
@@ -190,15 +189,15 @@ class PdfManager(QMainWindow):
         self.delete_image = types.MethodType(delete_image, self)
         self.reset_inputs = types.MethodType(reset_inputs, self)
         self.wheelEvent = types.MethodType(wheelEvent, self)
-        
+
         # PDF operations
         self.convert_to_pdf = types.MethodType(convert_to_pdf, self)
-        
+
         # Conversion settings
         self.update_conversion_ui = types.MethodType(update_conversion_ui, self)
         self.save_conversion_settings = types.MethodType(save_conversion_settings, self)
         self.load_conversion_settings = types.MethodType(load_conversion_settings, self)
-        
+
         # PDF merge
         self.add_pdf = types.MethodType(add_pdf, self)
         self.remove_pdf = types.MethodType(remove_pdf, self)
@@ -206,7 +205,7 @@ class PdfManager(QMainWindow):
         self.move_pdf_down = types.MethodType(move_pdf_down, self)
         self.merge_pdfs = types.MethodType(merge_pdfs, self)
         self.update_merge_summary = types.MethodType(update_merge_summary, self)
-        
+
         # PDF splitting
         self.extract_pages = types.MethodType(extract_pages, self)
         self.parse_page_range = types.MethodType(parse_page_range, self)
@@ -215,14 +214,14 @@ class PdfManager(QMainWindow):
         self.select_pdf_to_split = types.MethodType(select_pdf_to_split, self)
         self.count_pages = types.MethodType(count_pages, self)
         self.set_page_range = types.MethodType(set_page_range, self)
-        
+
         # PDF compression
         self.select_pdf = types.MethodType(select_pdf, self)
         self.preview_pdf = types.MethodType(preview_pdf, self)
         self.print_pdf = types.MethodType(print_pdf, self)
         self.compress_pdf = types.MethodType(compress_pdf, self)
         self.setup_pdf_editor = types.MethodType(setup_pdf_editor, self)
-        
+
         # PDF preview tab methods
         self.select_pdf_for_preview = types.MethodType(select_pdf_for_preview, self)
         self.load_pdf_in_preview = types.MethodType(load_pdf_in_preview, self)
@@ -234,7 +233,7 @@ class PdfManager(QMainWindow):
         self.apply_zoom_preview = types.MethodType(apply_zoom_preview, self)
         self.print_current_pdf = types.MethodType(print_current_pdf, self)
         self.open_in_system_viewer = types.MethodType(open_in_system_viewer, self)
-        
+
         # Set up each tab with widgets
         setup_main_tab(self)
         setup_convert_tab(self)
@@ -242,10 +241,10 @@ class PdfManager(QMainWindow):
         setup_merge_tab(self)
         setup_split_tab(self)
         setup_preview_tab(self)  # Setup the new preview tab
-        
+
         # Add developer credit
         add_developer_credit(self)
-        
+
         # Check dependencies on startup
         check_dependencies(self)
 
@@ -257,16 +256,16 @@ class PdfManager(QMainWindow):
         """Method to load a PDF from another tab into the PDF Viewer tab"""
         if not pdf_path or not os.path.exists(pdf_path):
             return False
-        
+
         # Store the PDF path
         self.latest_pdf = pdf_path
-        
+
         # Switch to the PDF Viewer tab
         for i in range(self.tab_widget.count()):
             if self.tab_widget.tabText(i) == "PDF Viewer":
                 self.tab_widget.setCurrentIndex(i)
                 break
-        
+
         # Enable buttons
         if hasattr(self, 'btn_print_preview'):
             self.btn_print_preview.setEnabled(True)
@@ -274,7 +273,7 @@ class PdfManager(QMainWindow):
             self.btn_open_system.setEnabled(True)
         if hasattr(self, 'big_system_btn'):
             self.big_system_btn.setEnabled(True)
-        
+
         # Update PDF info
         file_size = os.path.getsize(pdf_path) / 1024  # KB
         if file_size > 1024:
@@ -282,18 +281,19 @@ class PdfManager(QMainWindow):
             size_str = f"{file_size:.2f} MB"
         else:
             size_str = f"{file_size:.2f} KB"
-        
+
         if hasattr(self, 'preview_pdf_info'):
             self.preview_pdf_info.setText(f"PDF: {os.path.basename(pdf_path)} ({size_str})")
         if hasattr(self, 'preview_status'):
             self.preview_status.setText(f"Previewing: {os.path.basename(pdf_path)}")
-        
+
         # Load the PDF in the viewer
         try:
             return self.load_pdf_in_preview(pdf_path)
         except Exception as e:
             logging.error(f"Error loading external PDF: {str(e)}")
             return False
+
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
