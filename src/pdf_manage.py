@@ -294,18 +294,9 @@ class PdfManager(QMainWindow):
             logging.error(f"Error loading external PDF: {str(e)}")
             return False
 
-    def run_pytest(self):
-        """Run pytest and capture errors."""
-        import pytest
-        result = pytest.main(["--maxfail=1", "--disable-warnings", "-q"])
-        if result != 0:
-            logging.error("Pytest encountered errors.")
-        return result
-
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     window = PdfManager()
     window.show()
-    window.run_pytest()
     sys.exit(app.exec())
