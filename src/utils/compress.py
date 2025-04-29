@@ -11,7 +11,8 @@ from PyQt6.QtWidgets import QFileDialog, QMessageBox, QDialog
 from PyQt6.QtPrintSupport import QPrinter, QPrintDialog
 from PyQt6.QtCore import QCoreApplication
 from PIL import Image
-from src.utils.pdf_viewer import show_pdf_viewer
+from PyQt6.QtCore import QUrl
+from src.tabs.preview_tab import HAS_WEBENGINE
 
 def select_pdf(self):
     """Select a PDF file for compression or preview"""
@@ -42,32 +43,72 @@ def select_pdf(self):
         self.status_label.setText(f"PDF file selected: {os.path.basename(pdf_file)}")
 
 def preview_pdf(self):
-    """Preview the current PDF file using our custom PDF viewer"""
+    """Preview the current PDF file using the PDF Viewer tab"""
     if not self.latest_pdf or not os.path.exists(self.latest_pdf):
         QMessageBox.warning(self, "Warning", "Please select or create a PDF file first.")
         return
     
     try:
-        # Import and use our custom PDF viewer dialog
-        show_pdf_viewer(self, self.latest_pdf)
+        # First, find the PDF Viewer tab
+        pdf_viewer_tab_index = -1
+        for i in range(self.tab_widget.count()):
+            if self.tab_widget.tabText(i) == "PDF Viewer":
+                pdf_viewer_tab_index = i
+                break
         
-        self.status_label.setText(f"Previewing {os.path.basename(self.latest_pdf)}")
+        # If found, switch to it and update the PDF there
+        if pdf_viewer_tab_index >= 0:
+            # Switch to PDF Viewer tab
+            self.tab_widget.setCurrentIndex(pdf_viewer_tab_index)
+            
+            # Update UI elements in the PDF Viewer tab
+            if hasattr(self, 'preview_pdf_info'):
+                file_size = os.path.getsize(self.latest_pdf) / 1024  # KB
+                if file_size > 1024:
+                    file_size = file_size / 1024  # MB
+                    size_str = f"{file_size:.2f} MB"
+                else:
+                    size_str = f"{file_size:.2f} KB"
+                self.preview_pdf_info.setText(f"PDF: {os.path.basename(self.latest_pdf)} ({size_str})")
+            
+            if hasattr(self, 'btn_print_preview'):
+                self.btn_print_preview.setEnabled(True)
+            
+            if hasattr(self, 'btn_open_system'):
+                self.btn_open_system.setEnabled(True)
+            
+            # Load the PDF directly in the web view
+            if hasattr(self, 'pdf_web_view') and HAS_WEBENGINE:
+                try:
+                    abs_path = os.path.abspath(self.latest_pdf)
+                    url = QUrl.fromLocalFile(abs_path)
+                    self.pdf_web_view.setUrl(url)
+                    
+                    self.status_label.setText(f"Previewing {os.path.basename(self.latest_pdf)}")
+                    return
+                except Exception as e:
+                    logging.error(f"Error loading PDF in web view: {str(e)}")
+            
+            # If we have a big system button (fallback UI), enable it
+            if hasattr(self, 'big_system_btn'):
+                self.big_system_btn.setEnabled(True)
+                
+            self.status_label.setText(f"Previewing {os.path.basename(self.latest_pdf)}")
+            return
+        
+        # Fall back to system viewer if tab not found
+        if sys.platform == 'win32':
+            os.startfile(self.latest_pdf)
+        elif sys.platform == 'darwin':  # macOS
+            subprocess.run(['open', self.latest_pdf])
+        else:  # Linux
+            subprocess.run(['xdg-open', self.latest_pdf])
+            
+        self.status_label.setText(f"Previewing {os.path.basename(self.latest_pdf)} (external viewer)")
         
     except Exception as e:
         logging.error(f"Error previewing PDF: {str(e)}")
         QMessageBox.critical(self, "Error", f"Error opening PDF: {str(e)}\nSee error.log for details.")
-        
-        # Fall back to system viewer if our custom viewer fails
-        try:
-            if sys.platform == 'win32':
-                os.startfile(self.latest_pdf)
-            elif sys.platform == 'darwin':  # macOS
-                subprocess.run(['open', self.latest_pdf])
-            else:  # Linux
-                subprocess.run(['xdg-open', self.latest_pdf])
-        except Exception as fallback_error:
-            logging.error(f"Error with fallback preview: {str(fallback_error)}")
-            QMessageBox.critical(self, "Error", "Could not open PDF with system viewer either.")
 
 def print_pdf(self):
     """Print the current PDF file using our custom print dialog"""

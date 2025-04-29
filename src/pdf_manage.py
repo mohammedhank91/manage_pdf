@@ -22,7 +22,6 @@ from src.utils.convert import update_conversion_ui, save_conversion_settings, lo
 from src.utils.drag_drop import setupDragDrop, dragEnterEvent, dropEvent
 from src.utils.magick import find_imagick, run_imagemagick
 from src.utils.split import extract_pages, parse_page_range, extract_single_page_with_pypdf2, select_pdf_to_split, count_pages, extract_pages_with_pypdf2, set_page_range
-from src.utils.pdf_viewer import show_pdf_viewer
 
 # Import tab setup functions
 from src.tabs.main_tab import setup_main_tab
@@ -30,6 +29,8 @@ from src.tabs.convert_tab import setup_convert_tab
 from src.tabs.compress_tab import setup_tools_tab
 from src.tabs.merge_tab import setup_merge_tab
 from src.tabs.split_tab import setup_split_tab
+from src.tabs.preview_tab import setup_preview_tab, select_pdf_for_preview, load_pdf_in_preview, update_page_navigation
+from src.tabs.preview_tab import prev_page_preview, next_page_preview, zoom_in_preview, zoom_out_preview, apply_zoom_preview, print_current_pdf, open_in_system_viewer
 
 # Import utility functions
 from src.utils.developer import add_developer_credit
@@ -140,6 +141,7 @@ class PdfManager(QMainWindow):
         self.tools_tab = QWidget()
         self.merge_tab = QWidget()
         self.split_tab = QWidget()
+        self.preview_tab = QWidget()  # New preview tab
         
         # Add tabs to widget
         self.tab_widget.addTab(self.main_tab, "Main")
@@ -147,6 +149,7 @@ class PdfManager(QMainWindow):
         self.tab_widget.addTab(self.tools_tab, "Compress PDF")
         self.tab_widget.addTab(self.merge_tab, "Merge PDFs")
         self.tab_widget.addTab(self.split_tab, "Split PDF")
+        self.tab_widget.addTab(self.preview_tab, "PDF Viewer")  # New preview tab
         
         # Add tab widget to main layout
         self.main_layout.addWidget(self.tab_widget)
@@ -219,7 +222,18 @@ class PdfManager(QMainWindow):
         self.print_pdf = types.MethodType(print_pdf, self)
         self.compress_pdf = types.MethodType(compress_pdf, self)
         self.setup_pdf_editor = types.MethodType(setup_pdf_editor, self)
-        self.show_pdf_viewer = types.MethodType(show_pdf_viewer, self)
+        
+        # PDF preview tab methods
+        self.select_pdf_for_preview = types.MethodType(select_pdf_for_preview, self)
+        self.load_pdf_in_preview = types.MethodType(load_pdf_in_preview, self)
+        self.update_page_navigation = types.MethodType(update_page_navigation, self)
+        self.prev_page_preview = types.MethodType(prev_page_preview, self)
+        self.next_page_preview = types.MethodType(next_page_preview, self)
+        self.zoom_in_preview = types.MethodType(zoom_in_preview, self)
+        self.zoom_out_preview = types.MethodType(zoom_out_preview, self)
+        self.apply_zoom_preview = types.MethodType(apply_zoom_preview, self)
+        self.print_current_pdf = types.MethodType(print_current_pdf, self)
+        self.open_in_system_viewer = types.MethodType(open_in_system_viewer, self)
         
         # Set up each tab with widgets
         setup_main_tab(self)
@@ -227,6 +241,7 @@ class PdfManager(QMainWindow):
         setup_tools_tab(self)
         setup_merge_tab(self)
         setup_split_tab(self)
+        setup_preview_tab(self)  # Setup the new preview tab
         
         # Add developer credit
         add_developer_credit(self)
@@ -238,6 +253,47 @@ class PdfManager(QMainWindow):
         """Return the base directory of the application."""
         return self.base_path
 
+    def load_external_pdf_in_viewer(self, pdf_path):
+        """Method to load a PDF from another tab into the PDF Viewer tab"""
+        if not pdf_path or not os.path.exists(pdf_path):
+            return False
+        
+        # Store the PDF path
+        self.latest_pdf = pdf_path
+        
+        # Switch to the PDF Viewer tab
+        for i in range(self.tab_widget.count()):
+            if self.tab_widget.tabText(i) == "PDF Viewer":
+                self.tab_widget.setCurrentIndex(i)
+                break
+        
+        # Enable buttons
+        if hasattr(self, 'btn_print_preview'):
+            self.btn_print_preview.setEnabled(True)
+        if hasattr(self, 'btn_open_system'):
+            self.btn_open_system.setEnabled(True)
+        if hasattr(self, 'big_system_btn'):
+            self.big_system_btn.setEnabled(True)
+        
+        # Update PDF info
+        file_size = os.path.getsize(pdf_path) / 1024  # KB
+        if file_size > 1024:
+            file_size = file_size / 1024  # MB
+            size_str = f"{file_size:.2f} MB"
+        else:
+            size_str = f"{file_size:.2f} KB"
+        
+        if hasattr(self, 'preview_pdf_info'):
+            self.preview_pdf_info.setText(f"PDF: {os.path.basename(pdf_path)} ({size_str})")
+        if hasattr(self, 'preview_status'):
+            self.preview_status.setText(f"Previewing: {os.path.basename(pdf_path)}")
+        
+        # Load the PDF in the viewer
+        try:
+            return self.load_pdf_in_preview(pdf_path)
+        except Exception as e:
+            logging.error(f"Error loading external PDF: {str(e)}")
+            return False
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)

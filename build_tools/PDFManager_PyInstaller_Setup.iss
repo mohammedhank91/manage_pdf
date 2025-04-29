@@ -25,13 +25,13 @@ OutputBaseFilename=PDFManager_Setup_v{#MyAppVersion}_x64
 Compression=lzma2/ultra64
 SolidCompression=yes
 ArchitecturesAllowed=x86 x64
-ArchitecturesInstallIn64BitMode=x64
+ArchitecturesInstallIn64BitMode=x64os
 WizardStyle=modern
 WizardSmallImageFile=..\src\resources\wizard_small.bmp
 SetupIconFile={#MyAppIcon}
 UninstallDisplayIcon={app}\\manage_pdf.ico
 LicenseFile={#MyAppLicenseFile}
-MinVersion=6.1
+MinVersion=6.1sp1
 PrivilegesRequired=admin
 
 [Languages]

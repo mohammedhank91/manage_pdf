@@ -4,3 +4,5 @@ pyinstaller
 pikepdf
 PyPDF2
 pdf2image
+PyQt6-WebEngine
+PyQt6-PrintSupport

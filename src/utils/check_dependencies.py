@@ -45,6 +45,27 @@ def check_dependencies(self):
             "ImageMagick not found. Please place 'imagick_portable_64' folder next to the app."
         )
     
+    # Check for QtWebEngine (needed for PDF preview)
+    self.has_webengine = False
+    try:
+        from PyQt6 import QtWebEngineWidgets
+        self.has_webengine = True
+        logging.info("QtWebEngine is available")
+    except ImportError:
+        logging.warning("QtWebEngine not available - PDF viewer will be limited")
+        # Disable the PDF Viewer tab if QtWebEngine is not available
+        for i in range(self.tab_widget.count()):
+            if self.tab_widget.tabText(i) == "PDF Viewer":
+                self.tab_widget.setTabEnabled(i, False)
+                break
+        
+        QMessageBox.warning(
+            self,
+            "PDF Viewer Limited",
+            "The PDF Viewer tab is disabled because PyQt6-WebEngine is not installed.\n\n"
+            "To enable the PDF viewer, install the required dependency:\n"
+            "pip install PyQt6-WebEngine"
+        )
 
 def check_command_exists(self, cmd):
     """Check if a command exists by running it with '--version'"""
