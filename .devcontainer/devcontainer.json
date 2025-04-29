@@ -1,0 +1,7 @@
+{
+  "tasks": {
+    "test": "pip install -r requirements.txt && pip install pytest && pytest --maxfail=1 --disable-warnings -q",
+    "build": "pip install -r requirements.txt && python build_tools/build_with_pyinstaller.py",
+    "launch": "python src/pdf_manage.py"
+  }
+}
