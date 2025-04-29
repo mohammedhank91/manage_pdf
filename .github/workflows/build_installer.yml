@@ -103,8 +103,37 @@ jobs:
       - name: Build installer
         working-directory: build_tools
         run: iscc PDFManager_PyInstaller_Setup.iss
-      - name: Upload installer
+      - name: Upload installer to artifacts
         uses: actions/upload-artifact@v4
         with:
           name: PDFManager-installer
           path: installer_64/**/*.exe
+          
+      - name: Upload installer to file.io
+        id: upload-to-fileio
+        shell: bash
+        run: |
+          # Find the installer file
+          INSTALLER_PATH=$(find installer_64 -name "*.exe" -type f | head -n 1)
+          INSTALLER_NAME=$(basename "$INSTALLER_PATH")
+          
+          # Upload to file.io with 14 days expiration
+          UPLOAD_RESPONSE=$(curl -s -F "file=@$INSTALLER_PATH" https://file.io/?expires=14d)
+          
+          # Extract the link from the response
+          DOWNLOAD_LINK=$(echo $UPLOAD_RESPONSE | grep -o '"link":"[^"]*"' | cut -d'"' -f4)
+          
+          echo "Uploaded $INSTALLER_NAME to file.io"
+          echo "Download link: $DOWNLOAD_LINK"
+          echo "This link will expire in 14 days or after the first download"
+          
+          # Save the link as an output variable and GitHub Environment Variable
+          echo "DOWNLOAD_LINK=$DOWNLOAD_LINK" >> $GITHUB_ENV
+          echo "::set-output name=download_link::$DOWNLOAD_LINK"
+      
+      - name: Post upload info
+        if: steps.upload-to-fileio.outputs.download_link != ''
+        run: |
+          echo "File uploaded successfully to file.io"
+          echo "Download link: ${{ steps.upload-to-fileio.outputs.download_link }}"
+          echo "WARNING: This link will expire after the first download or after 14 days"
