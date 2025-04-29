@@ -15,6 +15,7 @@ on:
       - 'README.md'
       - 'docs/**'
       - '.github/**'
+  workflow_dispatch:
 
 jobs:
   lint:
@@ -139,4 +140,3 @@ jobs:
         with:
           name: PDFManager-installer
           path: installer_64/**/*.exe
-
