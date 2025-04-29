@@ -13,10 +13,16 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Get pip cache directory
+        id: pip-cache-dir
+        shell: pwsh
+        run: |
+          echo "dir=$(pip cache dir)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+
       - name: Cache pip
         uses: actions/cache@v4
         with:
-          path: ~/.cache/pip
+          path: ${{ steps.pip-cache-dir.outputs.dir }}
           key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
           restore-keys: |
             ${{ runner.os }}-pip-
