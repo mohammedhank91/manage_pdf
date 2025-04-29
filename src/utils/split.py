@@ -317,3 +317,14 @@ def extract_single_page_with_pypdf2(self, input_pdf, output_pdf, page_number):
         return False, "PyPDF2 module is not installed. Please install it using 'pip install PyPDF2'"
     except Exception as e:
         return False, f"Error extracting page: {str(e)}"
+
+def run_pytest():
+    """Run pytest and capture errors."""
+    import pytest
+    result = pytest.main(["--maxfail=1", "--disable-warnings", "-q"])
+    if result != 0:
+        logging.error("Pytest encountered errors.")
+    return result
+
+if __name__ == "__main__":
+    run_pytest()

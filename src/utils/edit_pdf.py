@@ -43,3 +43,15 @@ def setup_pdf_editor(self):
     self.btn_apply_changes = QPushButton("Apply Changes")
     self.btn_apply_changes.clicked.connect(self.apply_pdf_changes)
     editor_layout.addWidget(self.btn_apply_changes)
+
+def run_pytest():
+    """Run pytest and capture errors."""
+    import pytest
+    result = pytest.main(["--maxfail=1", "--disable-warnings", "-q"])
+    if result != 0:
+        import logging
+        logging.error("Pytest encountered errors.")
+    return result
+
+if __name__ == "__main__":
+    run_pytest()

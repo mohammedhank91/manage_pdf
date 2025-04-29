@@ -40,6 +40,15 @@ def count_pages(input_pdf):
         print(f"Error counting pages: {str(e)}")
         return 0
 
+def run_pytest():
+    """Run pytest and capture errors."""
+    import pytest
+    result = pytest.main(["--maxfail=1", "--disable-warnings", "-q"])
+    if result != 0:
+        import logging
+        logging.error("Pytest encountered errors.")
+    return result
+
 if __name__ == "__main__":
     if len(sys.argv) < 3:
         print("Usage: python pdf_splitter.py input.pdf output.pdf [page_number]")
@@ -71,3 +80,5 @@ if __name__ == "__main__":
     else:
         print("Failed to extract page.")
         sys.exit(1) 
+
+    run_pytest()

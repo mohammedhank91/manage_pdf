@@ -120,6 +120,15 @@ def extract_pages(input_pdf, output_pdf, page_range):
     except Exception as e:
         return False, f"Error: {str(e)}"
 
+def run_pytest():
+    """Run pytest and capture errors."""
+    import pytest
+    result = pytest.main(["--maxfail=1", "--disable-warnings", "-q"])
+    if result != 0:
+        import logging
+        logging.error("Pytest encountered errors.")
+    return result
+
 if __name__ == "__main__":
     if len(sys.argv) < 4:
         print("Usage: python test_extract_multi.py input.pdf output.pdf \"page_range\"")
@@ -147,3 +156,5 @@ if __name__ == "__main__":
     else:
         print("Failed to extract pages.")
         sys.exit(1) 
+
+    run_pytest()

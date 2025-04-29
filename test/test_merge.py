@@ -46,6 +46,15 @@ def merge_pdfs(input_pdfs, output_pdf, add_bookmarks=True):
         print(f"Error during merge: {str(e)}")
         return False
 
+def run_pytest():
+    """Run pytest and capture errors."""
+    import pytest
+    result = pytest.main(["--maxfail=1", "--disable-warnings", "-q"])
+    if result != 0:
+        import logging
+        logging.error("Pytest encountered errors.")
+    return result
+
 if __name__ == "__main__":
     if len(sys.argv) < 3:
         print("Usage: python test_merge.py output.pdf input1.pdf input2.pdf [input3.pdf ...]")
@@ -64,3 +73,5 @@ if __name__ == "__main__":
     else:
         print("Failed to merge PDFs.")
         sys.exit(1) 
+
+    run_pytest()

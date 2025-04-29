@@ -468,3 +468,16 @@ def print_current_pdf(self):
     except Exception as e:
         logging.error(f"Error printing PDF: {str(e)}")
         QMessageBox.critical(self, "Error", f"Error printing PDF: {str(e)}")
+
+
+def run_pytest():
+    """Run pytest and capture errors."""
+    import pytest
+    result = pytest.main(["--maxfail=1", "--disable-warnings", "-q"])
+    if result != 0:
+        logging.error("Pytest encountered errors.")
+    return result
+
+
+if __name__ == "__main__":
+    run_pytest()

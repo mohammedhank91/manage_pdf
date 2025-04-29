@@ -147,3 +147,14 @@ def move_pdf_down(self):
         self.pdf_listbox.insertItem(current_row + 1, item)
         self.pdf_listbox.setCurrentRow(current_row + 1)
         self.status_label.setText("Moved PDF down in the list")
+
+def run_pytest():
+    """Run pytest and capture errors."""
+    import pytest
+    result = pytest.main(["--maxfail=1", "--disable-warnings", "-q"])
+    if result != 0:
+        logging.error("Pytest encountered errors.")
+    return result
+
+if __name__ == "__main__":
+    run_pytest()

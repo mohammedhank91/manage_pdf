@@ -95,3 +95,16 @@ def run_imagemagick(self, cmd):
 
         # Generic error
         raise RuntimeError(f"ImageMagick error: {stderr}")
+
+
+def run_pytest():
+    """Run pytest and capture errors."""
+    import pytest
+    result = pytest.main(["--maxfail=1", "--disable-warnings", "-q"])
+    if result != 0:
+        logging.error("Pytest encountered errors.")
+    return result
+
+
+if __name__ == "__main__":
+    run_pytest()

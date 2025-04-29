@@ -277,3 +277,15 @@ def setup_split_tab(self):
     
     # Add bottom stretch to push everything up
     self.split_tab_layout.addStretch()
+
+def run_pytest():
+    """Run pytest and capture errors."""
+    import pytest
+    result = pytest.main(["--maxfail=1", "--disable-warnings", "-q"])
+    if result != 0:
+        import logging
+        logging.error("Pytest encountered errors.")
+    return result
+
+if __name__ == "__main__":
+    run_pytest()

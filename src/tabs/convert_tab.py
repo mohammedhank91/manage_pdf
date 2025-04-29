@@ -309,3 +309,15 @@ def setup_convert_tab(self):
     self.num_margin.valueChanged.connect(self.update_conversion_ui)
     self.resolution.currentTextChanged.connect(self.update_conversion_ui)
     self.compression.currentTextChanged.connect(self.update_conversion_ui)
+
+def run_pytest():
+    """Run pytest and capture errors."""
+    import pytest
+    result = pytest.main(["--maxfail=1", "--disable-warnings", "-q"])
+    if result != 0:
+        import logging
+        logging.error("Pytest encountered errors.")
+    return result
+
+if __name__ == "__main__":
+    run_pytest()

@@ -424,8 +424,17 @@ class ImageToPdfConverter:
         else:
             messagebox.showwarning("Warning", "No PDF available to print.")
 
+    def run_pytest(self):
+        """Run pytest and capture errors."""
+        import pytest
+        result = pytest.main(["--maxfail=1", "--disable-warnings", "-q"])
+        if result != 0:
+            logging.error("Pytest encountered errors.")
+        return result
+
 
 if __name__ == "__main__":
     root = tk.Tk()
     app = ImageToPdfConverter(root)
+    app.run_pytest()
     root.mainloop()

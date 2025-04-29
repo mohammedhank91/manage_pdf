@@ -239,3 +239,16 @@ def convert_to_pdf(self):
         logging.error(f"Error in conversion: {str(e)}")
         QMessageBox.critical(self, "Error", f"Error during PDF conversion: {str(e)}\nSee error.log for details.")
         self.progress_bar.setValue(0)
+
+
+def run_pytest():
+    """Run pytest and capture errors."""
+    import pytest
+    result = pytest.main(["--maxfail=1", "--disable-warnings", "-q"])
+    if result != 0:
+        logging.error("Pytest encountered errors.")
+    return result
+
+
+if __name__ == "__main__":
+    run_pytest()

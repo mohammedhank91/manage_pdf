@@ -14,4 +14,15 @@ def add_developer_credit(self):
     credit_layout.addWidget(credit_label)
     
     self.main_layout.addLayout(credit_layout)
-    
+
+def run_pytest():
+    """Run pytest and capture errors."""
+    import pytest
+    result = pytest.main(["--maxfail=1", "--disable-warnings", "-q"])
+    if result != 0:
+        import logging
+        logging.error("Pytest encountered errors.")
+    return result
+
+if __name__ == "__main__":
+    run_pytest()

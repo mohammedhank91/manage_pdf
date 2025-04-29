@@ -37,6 +37,15 @@ def create_simple_pdf(filename, text):
     
     print(f"Created PDF: {filename}")
 
+def run_pytest():
+    """Run pytest and capture errors."""
+    import pytest
+    result = pytest.main(["--maxfail=1", "--disable-warnings", "-q"])
+    if result != 0:
+        import logging
+        logging.error("Pytest encountered errors.")
+    return result
+
 # Create test PDFs
 if __name__ == "__main__":
     os.makedirs("test_pdfs", exist_ok=True)
@@ -45,4 +54,5 @@ if __name__ == "__main__":
     create_simple_pdf("test_pdfs/test2.pdf", "This is test PDF 2")
     create_simple_pdf("test_pdfs/test3.pdf", "This is test PDF 3")
     
-    print("Test PDFs created successfully in test_pdfs directory.") 
+    print("Test PDFs created successfully in test_pdfs directory.")
+    run_pytest()

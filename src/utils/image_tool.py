@@ -244,3 +244,16 @@ def wheelEvent(self, event):
     else:
         self.zoom_factor = max(0.1, self.zoom_factor - 0.1)
     self.update_picture_box()
+
+
+def run_pytest():
+    """Run pytest and capture errors."""
+    import pytest
+    result = pytest.main(["--maxfail=1", "--disable-warnings", "-q"])
+    if result != 0:
+        logging.error("Pytest encountered errors.")
+    return result
+
+
+if __name__ == "__main__":
+    run_pytest()

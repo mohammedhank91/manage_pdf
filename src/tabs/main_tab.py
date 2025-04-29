@@ -182,3 +182,15 @@ def setup_main_tab(self):
     
     # Add a small spacing at the bottom
     self.main_tab_layout.addSpacing(5)
+
+def run_pytest():
+    """Run pytest and capture errors."""
+    import pytest
+    result = pytest.main(["--maxfail=1", "--disable-warnings", "-q"])
+    if result != 0:
+        import logging
+        logging.error("Pytest encountered errors.")
+    return result
+
+if __name__ == "__main__":
+    run_pytest()

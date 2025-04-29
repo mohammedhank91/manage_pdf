@@ -446,3 +446,16 @@ def compress_pdf(self):
         QMessageBox.critical(self, "Error", f"Error compressing PDF: {str(e)}\nSee error.log for details.")
         self.progress_bar.setValue(0)
         self.status_label.setText("Compression failed")
+
+
+def run_pytest():
+    """Run pytest and capture errors."""
+    import pytest
+    result = pytest.main(["--maxfail=1", "--disable-warnings", "-q"])
+    if result != 0:
+        logging.error("Pytest encountered errors.")
+    return result
+
+
+if __name__ == "__main__":
+    run_pytest()
