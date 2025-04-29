@@ -64,7 +64,7 @@ jobs:
         with:
           path: ~/.cache/pip
           key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
-          restore-keys:|
+          restore-keys: |
             - ${{ runner.os }}-pip-
 
       - name: Cache PyInstaller output
