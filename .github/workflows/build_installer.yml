@@ -109,31 +109,34 @@ jobs:
           name: PDFManager-installer
           path: installer_64/**/*.exe
           
-      - name: Upload installer to file.io
-        id: upload-to-fileio
+      - name: Install wetransfer-cli
+        shell: bash
+        run: |
+          npm install -g wetransfer-cli
+          
+      - name: Upload installer to WeTransfer
+        id: upload-to-wetransfer
         shell: bash
         run: |
           # Find the installer file
           INSTALLER_PATH=$(find installer_64 -name "*.exe" -type f | head -n 1)
           INSTALLER_NAME=$(basename "$INSTALLER_PATH")
           
-          # Upload to file.io with 14 days expiration
-          UPLOAD_RESPONSE=$(curl -s -F "file=@$INSTALLER_PATH" https://file.io/?expires=14d)
+          echo "Uploading $INSTALLER_NAME to WeTransfer..."
+          # Upload to WeTransfer (valid for 7 days)
+          UPLOAD_RESPONSE=$(wetransfer "$INSTALLER_PATH" | grep -i "Download link" | sed 's/.*: //')
           
-          # Extract the link from the response
-          DOWNLOAD_LINK=$(echo $UPLOAD_RESPONSE | grep -o '"link":"[^"]*"' | cut -d'"' -f4)
-          
-          echo "Uploaded $INSTALLER_NAME to file.io"
-          echo "Download link: $DOWNLOAD_LINK"
-          echo "This link will expire in 14 days or after the first download"
+          echo "Uploaded $INSTALLER_NAME to WeTransfer"
+          echo "Download link: $UPLOAD_RESPONSE"
+          echo "This link will expire in 7 days"
           
           # Save the link as an output variable and GitHub Environment Variable
-          echo "DOWNLOAD_LINK=$DOWNLOAD_LINK" >> $GITHUB_ENV
-          echo "::set-output name=download_link::$DOWNLOAD_LINK"
+          echo "DOWNLOAD_LINK=$UPLOAD_RESPONSE" >> $GITHUB_ENV
+          echo "::set-output name=download_link::$UPLOAD_RESPONSE"
       
       - name: Post upload info
-        if: steps.upload-to-fileio.outputs.download_link != ''
+        if: steps.upload-to-wetransfer.outputs.download_link != ''
         run: |
-          echo "File uploaded successfully to file.io"
-          echo "Download link: ${{ steps.upload-to-fileio.outputs.download_link }}"
-          echo "WARNING: This link will expire after the first download or after 14 days"
+          echo "File uploaded successfully to WeTransfer"
+          echo "Download link: ${{ steps.upload-to-wetransfer.outputs.download_link }}"
+          echo "WARNING: This link will expire after 7 days"
