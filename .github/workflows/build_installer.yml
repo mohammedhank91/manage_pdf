@@ -20,7 +20,6 @@ on:
 jobs:
   test:
     name: Run Unit Tests
-    needs: lint
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
