@@ -109,6 +109,11 @@ jobs:
           name: PDFManager-installer
           path: installer_64/**/*.exe
           
+      - name: Install Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          
       - name: Install wetransfer-cli
         shell: bash
         run: |
@@ -124,7 +129,7 @@ jobs:
           
           echo "Uploading $INSTALLER_NAME to WeTransfer..."
           # Upload to WeTransfer (valid for 7 days)
-          UPLOAD_RESPONSE=$(wetransfer "$INSTALLER_PATH" | grep -i "Download link" | sed 's/.*: //')
+          UPLOAD_RESPONSE=$(wetransfer upload "$INSTALLER_PATH" | grep -i "Download link" | sed 's/.*: //')
           
           echo "Uploaded $INSTALLER_NAME to WeTransfer"
           echo "Download link: $UPLOAD_RESPONSE"
