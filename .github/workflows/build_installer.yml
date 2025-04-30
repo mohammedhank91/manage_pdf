@@ -109,39 +109,30 @@ jobs:
           name: PDFManager-installer
           path: installer_64/**/*.exe
           
-      - name: Install Node.js
-        uses: actions/setup-node@v3
+      - name: Get Version Info
+        id: version
+        shell: bash
+        run: |
+          VERSION=$(grep 'MyAppVersion' build_tools/PDFManager_PyInstaller_Setup.iss | head -1 | grep -o '".*"' | tr -d '"')
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          DATE=$(date +'%Y-%m-%d')
+          echo "date=$DATE" >> $GITHUB_OUTPUT
+          
+      - name: Create Release
+        id: create_release
+        uses: softprops/action-gh-release@v1
         with:
-          node-version: '18'
-          
-      - name: Install wetransfer-cli
-        shell: bash
-        run: |
-          npm install -g wetransfer-cli
-          
-      - name: Upload installer to WeTransfer
-        id: upload-to-wetransfer
-        shell: bash
-        run: |
-          # Find the installer file
-          INSTALLER_PATH=$(find installer_64 -name "*.exe" -type f | head -n 1)
-          INSTALLER_NAME=$(basename "$INSTALLER_PATH")
-          
-          echo "Uploading $INSTALLER_NAME to WeTransfer..."
-          # Upload to WeTransfer (valid for 7 days)
-          UPLOAD_RESPONSE=$(wetransfer upload "$INSTALLER_PATH" | grep -i "Download link" | sed 's/.*: //')
-          
-          echo "Uploaded $INSTALLER_NAME to WeTransfer"
-          echo "Download link: $UPLOAD_RESPONSE"
-          echo "This link will expire in 7 days"
-          
-          # Save the link as an output variable and GitHub Environment Variable
-          echo "DOWNLOAD_LINK=$UPLOAD_RESPONSE" >> $GITHUB_ENV
-          echo "::set-output name=download_link::$UPLOAD_RESPONSE"
+          tag_name: v${{ steps.version.outputs.version }}
+          name: PDF Manager v${{ steps.version.outputs.version }} (${{ steps.version.outputs.date }})
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+          files: installer_64/*.exe
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       
-      - name: Post upload info
-        if: steps.upload-to-wetransfer.outputs.download_link != ''
+      - name: Post Release Info
         run: |
-          echo "File uploaded successfully to WeTransfer"
-          echo "Download link: ${{ steps.upload-to-wetransfer.outputs.download_link }}"
-          echo "WARNING: This link will expire after 7 days"
+          echo "Release created successfully!"
+          echo "Release URL: ${{ steps.create_release.outputs.url }}"
+          echo "Download the installer from the Releases page: https://github.com/${{ github.repository }}/releases/latest"
