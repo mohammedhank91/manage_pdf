@@ -17,7 +17,7 @@ A versatile PDF management tool built with Python and PyQt.
 manage_pdf/
 ├── src/                        # Source code
 │   ├── resources/              # Icons and resources
-│   ├── pdf_manage.py        # Main application (PyQt6 version)
+│   ├── pdf_manage.py           # Main application (PyQt6 version)
 │   ├── manage_pdf_qt5.py       # PyQt5 version for compatibility
 │   └── manage_pdf_old.py       # Original script version
 ├── build_tools/                # Build scripts
@@ -31,6 +31,9 @@ manage_pdf/
 ├── imagick_portable_64/        # Optional portable ImageMagick (64-bit)
 ├── poppler_portable_64/        # Optional portable Poppler (64-bit)
 ├── temp/                       # Temporary files
+├── .github/                    # GitHub configuration
+│   └── workflows/              # GitHub Actions workflows
+│       └── build_installer.yml # Automated build and release workflow
 └── README.md                   # This file
 ```
 
@@ -52,11 +55,28 @@ The project contains three different implementations:
 - ImageMagick (for some advanced image operations)
 - Poppler (for high-quality PDF previews)
 
-## Running the Application
+## Download and Installation
 
-To run the application directly:
+### Option 1: Download the Pre-built Installer (Recommended)
+
+The easiest way to install PDF Manager is to download the latest installer from GitHub Releases:
+
+1. Visit the [Releases page](https://github.com/mohammedhank91/manage_pdf/releases/latest)
+2. Download the `PDF Manager_Setup_v1.0.0_x64.exe` file (or the latest version)
+3. Run the installer and follow the on-screen instructions
+
+### Option 2: Running the Application from Source
+
+To run the application directly from source:
 
 ```bash
+# Clone the repository
+git clone https://github.com/mohammedhank91/manage_pdf.git
+cd manage_pdf
+
+# Install dependencies
+pip install -r requirements.txt
+
 # Using PyQt6 (recommended for Windows 10/11)
 python src/pdf_manage.py
 
@@ -69,7 +89,22 @@ python src/manage_pdf_old.py
 
 ## Building and Distributing
 
-### Building with PyInstaller
+### Automated Builds with GitHub Actions
+
+This repository includes a GitHub Actions workflow that automatically builds the application and creates an installer when changes are pushed to the main branch. The workflow:
+
+1. Builds the Python application with PyInstaller
+2. Creates a Windows installer using Inno Setup
+3. Publishes the installer to GitHub Releases
+
+To manually trigger a build:
+
+1. Go to the [Actions tab](https://github.com/mohammedhank91/manage_pdf/actions)
+2. Select the "CI / CD for PDFManager" workflow
+3. Click "Run workflow" and select the branch to build from
+4. Once complete, the installer will be available in the [Releases page](https://github.com/mohammedhank91/manage_pdf/releases)
+
+### Building Locally with PyInstaller
 
 PyInstaller creates a compact and reliable executable:
 
@@ -90,7 +125,7 @@ chmod +x build_tools/build_app.sh
 
 The executable will be created in the `dist/PDFManager` directory.
 
-### Creating a Windows Installer
+### Creating a Windows Installer Locally
 
 For creating a professional Windows installer:
 
