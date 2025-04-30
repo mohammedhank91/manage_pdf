@@ -17,6 +17,11 @@ on:
       - '.github/**'
   workflow_dispatch:
 
+# Add permissions for the entire workflow
+permissions:
+  contents: write
+  packages: read
+  
 jobs:
 
   build-exe:
@@ -92,6 +97,9 @@ jobs:
     name: Create Windows Installer
     needs: build-exe
     runs-on: windows-latest
+    # Add permissions for this job specifically
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
