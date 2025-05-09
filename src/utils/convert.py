@@ -2,6 +2,11 @@ import os
 import logging
 from PyQt6.QtWidgets import QMessageBox, QFileDialog, QApplication
 import math
+import tempfile
+import shutil
+import gc
+from src.utils.compress import _register_temp_file, _cleanup_temp_files
+from src.utils.cleanup import mark_for_future_cleanup
 
 
 def update_conversion_ui(self):
@@ -44,6 +49,8 @@ def load_conversion_settings(self):
 
 def convert_to_pdf(self):
     """Convert selected images to PDF based on current settings"""
+    merger = None  # Initialize merger variable for proper cleanup
+    
     if len(self.selected_files) == 0:
         self.status_label.setText("No images selected!")
         QMessageBox.warning(self, "Warning", "Please select images first before converting.")
@@ -86,6 +93,10 @@ def convert_to_pdf(self):
             compression = "JPEG"
             quality = 85
 
+    # Create a temporary working directory for this conversion
+    temp_dir = tempfile.mkdtemp(prefix="pdf_convert_")
+    _register_temp_file(temp_dir)
+
     try:
         if self.chk_separate.isChecked():
             # Save as separate PDFs
@@ -96,6 +107,9 @@ def convert_to_pdf(self):
                 count = 0
 
                 for i, img_file in enumerate(self.selected_files):
+                    # Create temporary output file first
+                    temp_out_file = os.path.join(temp_dir, f"temp_output_{i}.pdf")
+                    _register_temp_file(temp_out_file)
                     out_file = os.path.join(folder, os.path.splitext(os.path.basename(img_file))[0] + ".pdf")
 
                     # Build ImageMagick command
@@ -113,9 +127,12 @@ def convert_to_pdf(self):
                     options = " ".join(filter(None, [rotate_option, border_option, orient_option,
                                                      page_size_option, quality_option, density_option, compress_option]))
 
-                    cmd = f'magick "{img_file}" {options} "{out_file}"'
+                    cmd = f'magick "{img_file}" {options} "{temp_out_file}"'
                     try:
                         self.run_imagemagick(cmd)
+                        
+                        # Copy from temp to final destination
+                        shutil.copy2(temp_out_file, out_file)
 
                         count += 1
                         self.progress_bar.setValue(math.floor((count / total) * 100))
@@ -129,8 +146,7 @@ def convert_to_pdf(self):
 
                 self.status_label.setText(f"All {count} images saved as separate PDFs in: {folder}")
                 QMessageBox.information(self, "Success", f"Created {count} PDF files in:\n{folder}")
-
-                # We don't enable the tools for multiple PDFs
+                
         else:
             # Save as single PDF
             output_pdf, _ = QFileDialog.getSaveFileName(
@@ -153,7 +169,8 @@ def convert_to_pdf(self):
                 temp_pdfs = []
                 for i, img_file in enumerate(self.selected_files):
                     # Create a temporary PDF for each image
-                    temp_pdf = os.path.join(os.path.dirname(output_pdf), f"temp_{i}.pdf")
+                    temp_pdf = os.path.join(temp_dir, f"temp_{i}.pdf")
+                    _register_temp_file(temp_pdf)
                     temp_pdfs.append(temp_pdf)
 
                     # Build command with individual file options
@@ -185,17 +202,23 @@ def convert_to_pdf(self):
                             if os.path.exists(pdf):
                                 merger.append(pdf)
 
-                        # Write the final merged PDF
-                        with open(output_pdf, 'wb') as f:
+                        # Create a temporary output file first
+                        temp_final_pdf = os.path.join(temp_dir, "final_output.pdf")
+                        _register_temp_file(temp_final_pdf)
+                        
+                        # Write to temp file first
+                        with open(temp_final_pdf, 'wb') as f:
                             merger.write(f)
-
-                        # Clean up temporary PDFs
-                        for pdf in temp_pdfs:
-                            if os.path.exists(pdf):
-                                try:
-                                    os.remove(pdf)
-                                except:
-                                    pass
+                        
+                        # Close the merger to release file handles before copying
+                        merger.close()
+                        merger = None
+                            
+                        # Force garbage collection to release any file handles
+                        gc.collect()
+                            
+                        # Then copy to final destination
+                        shutil.copy2(temp_final_pdf, output_pdf)
 
                         self.progress_bar.setValue(100)
                         self.status_label.setText(f"PDF created with {len(self.selected_files)} images: {output_pdf}")
@@ -239,3 +262,57 @@ def convert_to_pdf(self):
         logging.error(f"Error in conversion: {str(e)}")
         QMessageBox.critical(self, "Error", f"Error during PDF conversion: {str(e)}\nSee error.log for details.")
         self.progress_bar.setValue(0)
+    finally:
+        # Make sure to close the merger if it exists
+        if 'merger' in locals() and merger is not None:
+            try:
+                merger.close()
+            except:
+                pass
+                
+        # Force garbage collection to release file handles
+        gc.collect()
+        
+        # Always clean up temp files at the end
+        try:
+            # Force removal of all temporary files in directory
+            for filename in os.listdir(temp_dir):
+                filepath = os.path.join(temp_dir, filename)
+                try:
+                    if os.path.isfile(filepath):
+                        try:
+                            os.unlink(filepath)
+                        except Exception as e:
+                            logging.error(f"Error deleting file {filepath}: {str(e)}")
+                            # Mark for future cleanup if we can't delete now
+                            mark_for_future_cleanup(filepath)
+                except Exception as e:
+                    logging.error(f"Error processing file {filepath}: {str(e)}")
+            
+            # Remove the directory itself
+            try:
+                shutil.rmtree(temp_dir, ignore_errors=True)
+            except Exception as e:
+                logging.warning(f"Failed to remove temp directory {temp_dir}: {str(e)}")
+                # Mark for future cleanup
+                mark_for_future_cleanup(temp_dir)
+            
+            # Clean up any remaining registered temp files
+            _cleanup_temp_files()
+            
+            # Search for and clean any stray pdf_convert directories that might be left
+            tmp_dir = tempfile.gettempdir()
+            for item in os.listdir(tmp_dir):
+                if item.startswith("pdf_convert_"):
+                    try:
+                        item_path = os.path.join(tmp_dir, item)
+                        if os.path.isdir(item_path):
+                            shutil.rmtree(item_path, ignore_errors=True)
+                            logging.info(f"Cleaned up stray temp directory: {item_path}")
+                    except Exception as e:
+                        logging.error(f"Error cleaning up stray temp directory {item}: {str(e)}")
+                        # Mark for future cleanup
+                        mark_for_future_cleanup(item_path)
+            
+        except Exception as cleanup_error:
+            logging.error(f"Error cleaning up temp files: {str(cleanup_error)}")

@@ -20,6 +20,7 @@ from src.utils.convert import update_conversion_ui, save_conversion_settings, lo
 from src.utils.drag_drop import setupDragDrop, dragEnterEvent, dropEvent
 from src.utils.magick import find_imagick, run_imagemagick
 from src.utils.split import extract_pages, parse_page_range, extract_single_page_with_pypdf2, select_pdf_to_split, count_pages, extract_pages_with_pypdf2, set_page_range
+from src.utils.cleanup import force_cleanup_temp_files
 
 # Import tab setup functions
 from src.tabs.main_tab import setup_main_tab
@@ -42,6 +43,14 @@ class PdfManager(QMainWindow):
         """Initialize the Image to PDF converter."""
         # Call parent constructor
         super().__init__()
+
+        # Clean up any leftover temporary files from previous runs
+        try:
+            cleanup_count = force_cleanup_temp_files()
+            if cleanup_count > 0:
+                logging.info(f"Cleaned up {cleanup_count} leftover temporary files at startup")
+        except Exception as e:
+            logging.error(f"Error during startup cleanup: {str(e)}")
 
         # Initialize UI
         self.setWindowTitle("PDF Manager | by mohammedhank91")
@@ -293,6 +302,18 @@ class PdfManager(QMainWindow):
         except Exception as e:
             logging.error(f"Error loading external PDF: {str(e)}")
             return False
+
+    def closeEvent(self, event):
+        """Handle application close event - clean up temporary files"""
+        try:
+            cleanup_count = force_cleanup_temp_files()
+            if cleanup_count > 0:
+                logging.info(f"Cleaned up {cleanup_count} temporary files at application exit")
+        except Exception as e:
+            logging.error(f"Error during exit cleanup: {str(e)}")
+        
+        # Accept the close event to proceed with application exit
+        event.accept()
 
 
 if __name__ == "__main__":

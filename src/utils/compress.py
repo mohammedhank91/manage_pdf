@@ -6,13 +6,55 @@ import pikepdf
 import tempfile
 import shutil
 import io
+import gc
 from PyQt6.QtWidgets import QFileDialog, QMessageBox, QDialog
 from PyQt6.QtPrintSupport import QPrinter, QPrintDialog
 from PyQt6.QtCore import QCoreApplication
 from PIL import Image
 from PyQt6.QtCore import QUrl
 from src.tabs.preview_tab import HAS_WEBENGINE
+from src.utils.cleanup import mark_for_future_cleanup
 
+
+# Global variable to track temporary files
+_temp_files = []
+
+def _register_temp_file(filepath):
+    """Register a temporary file for later cleanup"""
+    global _temp_files
+    if filepath and filepath not in _temp_files:
+        _temp_files.append(filepath)
+
+def _cleanup_temp_files():
+    """Clean up all registered temporary files"""
+    global _temp_files
+    for filepath in _temp_files[:]:  # Create a copy to iterate over
+        try:
+            if os.path.exists(filepath):
+                os.remove(filepath)
+                _temp_files.remove(filepath)
+                logging.info(f"Cleaned up temporary file: {filepath}")
+        except Exception as e:
+            logging.warning(f"Failed to remove temporary file {filepath}: {str(e)}")
+            # Mark for future cleanup if we can't delete now
+            mark_for_future_cleanup(filepath)
+            
+    # Search for and clean any stray pdf_compress directories that might be left
+    try:
+        tmp_dir = tempfile.gettempdir()
+        for item in os.listdir(tmp_dir):
+            if item.startswith("pdf_compress_"):
+                try:
+                    item_path = os.path.join(tmp_dir, item)
+                    if os.path.isdir(item_path):
+                        shutil.rmtree(item_path, ignore_errors=True)
+                        logging.info(f"Cleaned up stray temp directory: {item_path}")
+                except Exception as e:
+                    logging.error(f"Error cleaning up stray temp directory {item}: {str(e)}")
+                    # Mark for future cleanup
+                    mark_for_future_cleanup(item_path)
+    except Exception as e:
+        logging.warning(f"Error searching for stray temp directories: {str(e)}")
 
 def select_pdf(self):
     """Select a PDF file for compression or preview"""
@@ -167,168 +209,259 @@ def direct_compress_pdf(input_path, output_path, compression_level=2):
     Direct PDF compression function with special handling for image-heavy PDFs.
     compression_level: 1=light, 2=medium, 3=maximum
     """
-    with pikepdf.Pdf.open(input_path) as pdf:
-        # Process images if it's an image-heavy PDF
-        try:
-            # Check if there are images to process
-            has_images = False
+    # Create a temporary working directory for image processing
+    temp_image_dir = tempfile.mkdtemp(prefix="pdf_compress_")
+    _register_temp_file(temp_image_dir)
+    
+    pdf = None  # Initialize pdf variable for proper cleanup
+    
+    try:
+        # Open the PDF file
+        pdf = pikepdf.Pdf.open(input_path)
+        
+        # Check if there are images to process
+        has_images = False
 
-            # First pass - scan for images
+        # First pass - scan for images
+        for page in pdf.pages:
+            if "/Resources" in page and "/XObject" in page["/Resources"]:
+                for name, obj in list(page["/Resources"].get("/XObject", {}).items()):
+                    if isinstance(obj, pikepdf.Stream) and obj.get("/Subtype") == "/Image":
+                        has_images = True
+                        break
+                if has_images:
+                    break
+
+        # If images found, process them based on compression level
+        if has_images:
+            # Determine image compression level
+            jpeg_quality = 90  # Default - light compression
+            max_resolution = 300  # DPI
+
+            if compression_level == 2:  # Medium
+                jpeg_quality = 75
+                max_resolution = 200
+            elif compression_level == 3:  # Maximum
+                jpeg_quality = 60
+                max_resolution = 150
+
+            # Process images in each page
             for page in pdf.pages:
                 if "/Resources" in page and "/XObject" in page["/Resources"]:
-                    for name, obj in list(page["/Resources"].get("/XObject", {}).items()):
+                    resources = page["/Resources"]
+                    for name, obj in list(resources.get("/XObject", {}).items()):
                         if isinstance(obj, pikepdf.Stream) and obj.get("/Subtype") == "/Image":
-                            has_images = True
-                            break
-                    if has_images:
-                        break
+                            # Get image details
+                            width = int(obj.get("/Width", 0))
+                            height = int(obj.get("/Height", 0))
 
-            # If images found, process them based on compression level
-            if has_images:
-                # Determine image compression level
-                jpeg_quality = 90  # Default - light compression
-                max_resolution = 300  # DPI
+                            # Skip small images
+                            if width < 100 or height < 100:
+                                continue
 
-                if compression_level == 2:  # Medium
-                    jpeg_quality = 75
-                    max_resolution = 200
-                elif compression_level == 3:  # Maximum
-                    jpeg_quality = 60
-                    max_resolution = 150
+                            # Process based on image type
+                            filter_type = obj.get("/Filter")
 
-                # Process images in each page
-                for page in pdf.pages:
-                    if "/Resources" in page and "/XObject" in page["/Resources"]:
-                        resources = page["/Resources"]
-                        for name, obj in list(resources.get("/XObject", {}).items()):
-                            if isinstance(obj, pikepdf.Stream) and obj.get("/Subtype") == "/Image":
-                                # Get image details
-                                width = int(obj.get("/Width", 0))
-                                height = int(obj.get("/Height", 0))
+                            # Images that are already JPEG
+                            is_jpeg = False
+                            if filter_type == "/DCTDecode" or filter_type == pikepdf.Name.DCTDecode:
+                                is_jpeg = True
+                            elif isinstance(filter_type, pikepdf.Array):
+                                for f in filter_type:
+                                    if f == pikepdf.Name.DCTDecode or f == "/DCTDecode":
+                                        is_jpeg = True
+                                        break
 
-                                # Skip small images
-                                if width < 100 or height < 100:
-                                    continue
+                            if is_jpeg:
+                                # For JPEGs, we can try to recompress if they're large
+                                if compression_level >= 2 and (width > 1000 or height > 1000):
+                                    try:
+                                        # Create a unique temp file for this image
+                                        temp_img_file = os.path.join(temp_image_dir, f"img_temp_{id(obj)}.jpg")
+                                        _register_temp_file(temp_img_file)
+                                        
+                                        # Read image data
+                                        img_data = obj.read_raw_bytes()
+                                        img = Image.open(io.BytesIO(img_data))
 
-                                # Process based on image type
-                                filter_type = obj.get("/Filter")
+                                        # Resize large images
+                                        if width > 1500 or height > 1500:
+                                            ratio = min(1500 / width, 1500 / height)
+                                            new_width = int(width * ratio)
+                                            new_height = int(height * ratio)
+                                            img = img.resize((new_width, new_height), Image.BICUBIC)
 
-                                # Images that are already JPEG
-                                is_jpeg = False
-                                if filter_type == "/DCTDecode" or filter_type == pikepdf.Name.DCTDecode:
-                                    is_jpeg = True
+                                        # Recompress with adobe-compatible settings
+                                        img.save(temp_img_file, format="JPEG", quality=jpeg_quality, optimize=True)
+                                        
+                                        with open(temp_img_file, 'rb') as f:
+                                            new_data = f.read()
+
+                                        # Only replace if smaller
+                                        if len(new_data) < len(img_data):
+                                            # Make sure new dimensions are updated properly
+                                            if width > 1500 or height > 1500:
+                                                obj["/Width"] = new_width
+                                                obj["/Height"] = new_height
+                                            
+                                            obj.write(new_data, filter=pikepdf.Name.DCTDecode)
+                                    except Exception as e:
+                                        print(f"Error processing JPEG image: {e}")
+
+                            # Non-JPEG images (like PNG, bitmap, etc)
+                            else:
+                                is_flate = False
+                                if filter_type == "/FlateDecode" or filter_type == pikepdf.Name.FlateDecode:
+                                    is_flate = True
                                 elif isinstance(filter_type, pikepdf.Array):
                                     for f in filter_type:
-                                        if f == pikepdf.Name.DCTDecode or f == "/DCTDecode":
-                                            is_jpeg = True
+                                        if f == pikepdf.Name.FlateDecode or f == "/FlateDecode":
+                                            is_flate = True
                                             break
 
-                                if is_jpeg:
-                                    # For JPEGs, we can try to recompress if they're large
-                                    if compression_level >= 2 and (width > 1000 or height > 1000):
-                                        try:
-                                            # Read image data
-                                            img_data = obj.read_raw_bytes()
-                                            img = Image.open(io.BytesIO(img_data))
-
+                                # For Adobe Acrobat compatibility, be more cautious with image conversions
+                                # Only convert simple RGB and Grayscale images
+                                if is_flate and compression_level >= 2:
+                                    try:
+                                        # Get color space
+                                        colorspace = obj.get("/ColorSpace")
+                                        bits = int(obj.get("/BitsPerComponent", 8))
+                                        
+                                        # Only process standard RGB and Grayscale images
+                                        if bits == 8 and colorspace in ["/DeviceRGB", pikepdf.Name.DeviceRGB, 
+                                                                      "/DeviceGray", pikepdf.Name.DeviceGray]:
+                                            
+                                            is_rgb = colorspace in ["/DeviceRGB", pikepdf.Name.DeviceRGB]
+                                            
+                                            # Create a unique temp file for this image
+                                            temp_img_file = os.path.join(temp_image_dir, f"img_temp_{id(obj)}.jpg")
+                                            _register_temp_file(temp_img_file)
+                                            
+                                            # Try to load image
+                                            img_data = obj.read_bytes()
+                                            
+                                            # Handle based on colorspace
+                                            if is_rgb:
+                                                img = Image.frombytes("RGB", (width, height), img_data)
+                                            else:  # DeviceGray
+                                                img = Image.frombytes("L", (width, height), img_data)
+                                            
                                             # Resize large images
+                                            new_width, new_height = width, height
                                             if width > 1500 or height > 1500:
                                                 ratio = min(1500 / width, 1500 / height)
                                                 new_width = int(width * ratio)
                                                 new_height = int(height * ratio)
                                                 img = img.resize((new_width, new_height), Image.BICUBIC)
 
-                                            # Recompress
-                                            buffer = io.BytesIO()
-                                            img.save(buffer, format="JPEG", quality=jpeg_quality, optimize=True)
-                                            buffer.seek(0)
-                                            new_data = buffer.read()
-
-                                            # Only replace if smaller
-                                            if len(new_data) < len(img_data):
+                                            # Convert to JPEG with Adobe compatibility settings
+                                            img.save(temp_img_file, format="JPEG", quality=jpeg_quality, optimize=True)
+                                            
+                                            with open(temp_img_file, 'rb') as f:
+                                                new_data = f.read()
+                                            
+                                            # Calculate if the new version is smaller
+                                            original_size = len(img_data)
+                                            new_size = len(new_data)
+                                            
+                                            # Only replace if the new version is smaller
+                                            if new_size < original_size:
+                                                # Update dimensions if resized
+                                                if width > 1500 or height > 1500:
+                                                    obj["/Width"] = new_width
+                                                    obj["/Height"] = new_height
+                                                
+                                                # Set proper colorspace
+                                                if img.mode == "L":
+                                                    obj["/ColorSpace"] = pikepdf.Name.DeviceGray
+                                                elif img.mode == "RGB":
+                                                    obj["/ColorSpace"] = pikepdf.Name.DeviceRGB
+                                                
+                                                # Update image data
                                                 obj.write(new_data, filter=pikepdf.Name.DCTDecode)
-                                        except Exception as e:
-                                            print(f"Error processing JPEG image: {e}")
+                                                
+                                                # Set bits per component
+                                                obj["/BitsPerComponent"] = 8
+                                                
+                                                # Remove unnecessary entries that might cause conflicts
+                                                for key in ["/DecodeParms", "/Predictor", "/Interpolate"]:
+                                                    if key in obj:
+                                                        del obj[key]
+                                        
+                                    except Exception as e:
+                                        print(f"Error converting image to JPEG: {e}")
+            
+            # Clean up any unreferenced objects created during processing
+            pdf.remove_unreferenced_resources()
 
-                                # Non-JPEG images (like PNG, bitmap, etc)
-                                else:
-                                    is_flate = False
-                                    if filter_type == "/FlateDecode" or filter_type == pikepdf.Name.FlateDecode:
-                                        is_flate = True
-                                    elif isinstance(filter_type, pikepdf.Array):
-                                        for f in filter_type:
-                                            if f == pikepdf.Name.FlateDecode or f == "/FlateDecode":
-                                                is_flate = True
-                                                break
-
-                                    if is_flate:
-                                        # For non-JPEGs, try to convert to JPEG
-                                        if width >= 100 and height >= 100:
-                                            try:
-                                                # Get color space
-                                                colorspace = obj.get("/ColorSpace")
-                                                bits = int(obj.get("/BitsPerComponent", 8))
-
-                                                # Only process 8-bit images
-                                                if bits == 8:
-                                                    # Try to load image
-                                                    img_data = obj.read_bytes()
-
-                                                    # Handle based on colorspace
-                                                    if colorspace == "/DeviceRGB":
-                                                        img = Image.frombytes("RGB", (width, height), img_data)
-                                                    elif colorspace == "/DeviceGray":
-                                                        img = Image.frombytes("L", (width, height), img_data)
-                                                    else:
-                                                        # Skip complex colorspaces
-                                                        continue
-
-                                                    # Resize large images
-                                                    if width > 1500 or height > 1500:
-                                                        ratio = min(1500 / width, 1500 / height)
-                                                        new_width = int(width * ratio)
-                                                        new_height = int(height * ratio)
-                                                        img = img.resize((new_width, new_height), Image.BICUBIC)
-
-                                                    # Convert to JPEG
-                                                    buffer = io.BytesIO()
-                                                    img.save(buffer, format="JPEG", quality=jpeg_quality, optimize=True)
-                                                    buffer.seek(0)
-                                                    new_data = buffer.read()
-
-                                                    # Replace with JPEG version
-                                                    obj.write(new_data, filter=pikepdf.Name.DCTDecode)
-
-                                                    # Update color space
-                                                    if img.mode == "L":
-                                                        obj["/ColorSpace"] = pikepdf.Name.DeviceGray
-                                                    elif img.mode == "RGB":
-                                                        obj["/ColorSpace"] = pikepdf.Name.DeviceRGB
-
-                                                    # Remove unnecessary entries
-                                                    for key in ["/DecodeParms", "/Predictor"]:
-                                                        if key in obj:
-                                                            del obj[key]
-
-                                                    # Set bits per component
-                                                    obj["/BitsPerComponent"] = 8
-
-                                            except Exception as e:
-                                                print(f"Error converting image to JPEG: {e}")
-
-                # Clean up any unreferenced objects created during processing
-                pdf.remove_unreferenced_resources()
-
-        except Exception as e:
-            print(f"Error processing images in PDF: {e}")
-
-        # Finally apply standard PDF compression
+        # Use a temporary file for the initial save to avoid issues
+        temp_output = os.path.join(temp_image_dir, "temp_output.pdf")
+        _register_temp_file(temp_output)
+        
+        # Save with compatibility options for best Adobe support
         pdf.save(
-            output_path,
+            temp_output,
             compress_streams=True,
             recompress_flate=True,
-            object_stream_mode=pikepdf.ObjectStreamMode.generate
+            object_stream_mode=pikepdf.ObjectStreamMode.generate,
+            preserve_pdfa=True  # Maintain PDF/A compatibility when possible
         )
+        
+        # Close the PDF before copying to release file handles
+        pdf.close()
+        pdf = None
+        
+        # Force garbage collection to release any file handles
+        gc.collect()
+        
+        # Now copy to final destination
+        shutil.copy2(temp_output, output_path)
+        
+    except Exception as e:
+        logging.error(f"Error processing PDF: {str(e)}")
+        if pdf is not None:
+            try:
+                pdf.close()
+            except:
+                pass
+        raise
+    finally:
+        # Make sure to close the PDF if it's still open
+        if pdf is not None:
+            try:
+                pdf.close()
+            except:
+                pass
+            
+        # Force garbage collection
+        gc.collect()
+        
+        # Clean up the temporary directory and its contents
+        try:
+            # First try to delete individual files
+            for filename in os.listdir(temp_image_dir):
+                try:
+                    filepath = os.path.join(temp_image_dir, filename)
+                    if os.path.isfile(filepath):
+                        try:
+                            os.unlink(filepath)
+                        except Exception as e:
+                            logging.warning(f"Could not delete file {filepath}: {str(e)}")
+                            mark_for_future_cleanup(filepath)
+                except:
+                    pass
+                
+            # Then try to remove the directory
+            shutil.rmtree(temp_image_dir, ignore_errors=True)
+            _temp_files = [f for f in _temp_files if not f.startswith(temp_image_dir)]
+            
+            # If directory still exists, mark it for future cleanup
+            if os.path.exists(temp_image_dir):
+                mark_for_future_cleanup(temp_image_dir)
+                
+        except Exception as e:
+            logging.warning(f"Failed to clean up temp directory {temp_image_dir}: {str(e)}")
+            mark_for_future_cleanup(temp_image_dir)
 
     return True
 
@@ -347,6 +480,7 @@ def compress_pdf(self):
         # Create a temporary output filename for the compressed file
         temp_dir = tempfile.gettempdir()
         temp_filename = os.path.join(temp_dir, f"compressed_{os.path.basename(self.latest_pdf)}")
+        _register_temp_file(temp_filename)
 
         # Record the original file size
         original_size = os.path.getsize(self.latest_pdf) / 1024  # KB
@@ -431,12 +565,11 @@ def compress_pdf(self):
                 "Success",
                 f"PDF compressed successfully!\nOriginal size: {original_size_str}\nCompressed size: {compressed_size_str}\n{compression_info}")
 
-        # Clean up temporary file
-        try:
-            if os.path.exists(temp_filename):
-                os.remove(temp_filename)
-        except Exception as e:
-            logging.warning(f"Failed to remove temporary file: {str(e)}")
+        # Clean up all temporary files
+        _cleanup_temp_files()
+        
+        # Force garbage collection to release file handles
+        gc.collect()
 
         self.progress_bar.setValue(100)
         self.status_label.setText(f"PDF compressed successfully")
@@ -446,3 +579,6 @@ def compress_pdf(self):
         QMessageBox.critical(self, "Error", f"Error compressing PDF: {str(e)}\nSee error.log for details.")
         self.progress_bar.setValue(0)
         self.status_label.setText("Compression failed")
+        
+        # Even on error, try to clean up temp files
+        _cleanup_temp_files()
