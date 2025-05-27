@@ -33,6 +33,7 @@ def setup_preview_tab(self):
     self.btn_select_pdf_preview = QPushButton("Select PDF")
     self.btn_select_pdf_preview.setIcon(QIcon.fromTheme("document-open"))
     self.btn_select_pdf_preview.clicked.connect(self.select_pdf_for_preview)
+    self.btn_select_pdf_preview.setToolTip("Browse and select a PDF file to preview")
     controls_layout.addWidget(self.btn_select_pdf_preview)
 
     # Label to show current PDF
@@ -44,12 +45,14 @@ def setup_preview_tab(self):
     self.btn_print_preview.setIcon(QIcon.fromTheme("document-print"))
     self.btn_print_preview.clicked.connect(self.print_current_pdf)
     self.btn_print_preview.setEnabled(False)
+    self.btn_print_preview.setToolTip("Print the currently previewed PDF document")
     controls_layout.addWidget(self.btn_print_preview)
 
     # Open in system viewer button (always available as fallback)
     self.btn_open_system = QPushButton("Open in System Viewer")
     self.btn_open_system.clicked.connect(self.open_in_system_viewer)
     self.btn_open_system.setEnabled(False)
+    self.btn_open_system.setToolTip("Open the PDF file in your default system PDF viewer")
     controls_layout.addWidget(self.btn_open_system)
 
     # Add controls to the main layout
@@ -65,6 +68,7 @@ def setup_preview_tab(self):
         self.btn_zoom_out = QPushButton("-")
         self.btn_zoom_out.setFixedWidth(30)
         self.btn_zoom_out.clicked.connect(self.zoom_out_preview)
+        self.btn_zoom_out.setToolTip("Zoom out to see more of the page")
         zoom_layout.addWidget(self.btn_zoom_out)
 
         # Zoom factor
@@ -74,12 +78,14 @@ def setup_preview_tab(self):
         self.zoom_factor_preview.setSuffix("%")
         self.zoom_factor_preview.setSingleStep(10)
         self.zoom_factor_preview.valueChanged.connect(self.apply_zoom_preview)
+        self.zoom_factor_preview.setToolTip("Set zoom level for PDF preview (50% to 200%)")
         zoom_layout.addWidget(self.zoom_factor_preview)
 
         # Zoom in button
         self.btn_zoom_in = QPushButton("+")
         self.btn_zoom_in.setFixedWidth(30)
         self.btn_zoom_in.clicked.connect(self.zoom_in_preview)
+        self.btn_zoom_in.setToolTip("Zoom in for a closer view of the page")
         zoom_layout.addWidget(self.btn_zoom_in)
 
         controls_layout.addLayout(zoom_layout)
@@ -153,6 +159,7 @@ def setup_preview_tab(self):
         self.btn_prev_page = QPushButton("◀ Previous")
         self.btn_prev_page.clicked.connect(self.prev_page_preview)
         self.btn_prev_page.setEnabled(False)
+        self.btn_prev_page.setToolTip("Go to the previous page in the PDF")
         page_nav_layout.addWidget(self.btn_prev_page)
 
         # Page indicator
@@ -163,6 +170,7 @@ def setup_preview_tab(self):
         self.btn_next_page = QPushButton("Next ▶")
         self.btn_next_page.clicked.connect(self.next_page_preview)
         self.btn_next_page.setEnabled(False)
+        self.btn_next_page.setToolTip("Go to the next page in the PDF")
         page_nav_layout.addWidget(self.btn_next_page)
 
         status_layout.addLayout(page_nav_layout)

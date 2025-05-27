@@ -14,6 +14,12 @@ def setup_convert_tab(self):
     self.convert_header.setAlignment(Qt.AlignmentFlag.AlignCenter)
     self.convert_tab_layout.addWidget(self.convert_header)
     
+    # Add a subtitle for better user guidance
+    subtitle = QLabel("Configure settings and convert your images to PDF format")
+    subtitle.setAlignment(Qt.AlignmentFlag.AlignCenter)
+    subtitle.setStyleSheet("color: #6c757d; font-size: 9pt; font-style: italic; margin-bottom: 8px;")
+    self.convert_tab_layout.addWidget(subtitle)
+    
     # Main container with two columns
     container_layout = QHBoxLayout()
     
@@ -40,6 +46,7 @@ def setup_convert_tab(self):
     # Checkbox for separate PDFs
     self.chk_separate = QCheckBox("Save each image as a separate PDF")
     self.chk_separate.setStyleSheet("color: #424242;")
+    self.chk_separate.setToolTip("When checked, creates one PDF file per image instead of combining all images into one PDF")
     output_layout.addWidget(self.chk_separate)
     
     # Paper settings
@@ -48,6 +55,7 @@ def setup_convert_tab(self):
     paper_layout.addWidget(QLabel("Paper Size:"), 0, 0)
     self.paper_size = QComboBox()
     self.paper_size.addItems(["A4", "Letter", "Legal", "A3", "A5"])
+    self.paper_size.setToolTip("Select the paper size for your PDF document")
     self.paper_size.setStyleSheet("""
         QComboBox {
             padding: 4px;
@@ -259,6 +267,7 @@ def setup_convert_tab(self):
     self.btn_convert.clicked.connect(self.convert_to_pdf)
     self.btn_convert.setFixedHeight(50)
     self.btn_convert.setStyleSheet("background-color: #4caf50; font-size: 12pt;")
+    self.btn_convert.setToolTip("Convert selected images to PDF with current settings")
     action_layout.addWidget(self.btn_convert)
     
     # Quick action buttons
@@ -268,9 +277,13 @@ def setup_convert_tab(self):
     self.btn_save_settings.setObjectName("btn_save_settings")
     self.btn_save_settings.clicked.connect(self.save_conversion_settings)
     self.btn_save_settings.setStyleSheet("color: white; background-color: #2196f3; font-weight: bold;")
+    self.btn_save_settings.setToolTip("Save current conversion settings for future use")
     
     self.btn_load_settings = QPushButton("Load Settings")
     self.btn_load_settings.setObjectName("btn_load_settings")
+    self.btn_load_settings.clicked.connect(self.load_conversion_settings)
+    self.btn_load_settings.setStyleSheet("color: white; background-color: #2196f3; font-weight: bold;")
+    self.btn_load_settings.setToolTip("Load previously saved conversion settings")
     self.btn_load_settings.clicked.connect(self.load_conversion_settings)
     self.btn_load_settings.setStyleSheet("color: white; background-color: #2196f3; font-weight: bold;")
     

@@ -27,7 +27,7 @@ from src.tabs.main_tab import setup_main_tab
 from src.tabs.convert_tab import setup_convert_tab
 from src.tabs.compress_tab import setup_tools_tab
 from src.tabs.merge_tab import setup_merge_tab
-from src.tabs.split_tab import setup_split_tab
+from src.tabs.split_tab import setup_split_tab, load_pdf_in_split_preview, update_split_page_navigation, split_prev_page, split_next_page, zoom_split_preview, apply_split_zoom
 from src.tabs.preview_tab import setup_preview_tab, select_pdf_for_preview, load_pdf_in_preview, update_page_navigation
 from src.tabs.preview_tab import prev_page_preview, next_page_preview, zoom_in_preview, zoom_out_preview, apply_zoom_preview, print_current_pdf, open_in_system_viewer
 
@@ -242,6 +242,14 @@ class PdfManager(QMainWindow):
         self.apply_zoom_preview = types.MethodType(apply_zoom_preview, self)
         self.print_current_pdf = types.MethodType(print_current_pdf, self)
         self.open_in_system_viewer = types.MethodType(open_in_system_viewer, self)
+
+        # Split tab preview methods
+        self.load_pdf_in_split_preview = types.MethodType(load_pdf_in_split_preview, self)
+        self.update_split_page_navigation = types.MethodType(update_split_page_navigation, self)
+        self.split_prev_page = types.MethodType(split_prev_page, self)
+        self.split_next_page = types.MethodType(split_next_page, self)
+        self.zoom_split_preview = types.MethodType(zoom_split_preview, self)
+        self.apply_split_zoom = types.MethodType(apply_split_zoom, self)
 
         # Set up each tab with widgets
         setup_main_tab(self)

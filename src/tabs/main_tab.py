@@ -21,6 +21,12 @@ def setup_main_tab(self):
     self.main_header.setStyleSheet("font-size: 12pt; margin-bottom: 2px;")
     self.main_tab_layout.addWidget(self.main_header)
     
+    # Add a subtitle for better user guidance
+    subtitle = QLabel("Choose images to convert to PDF • Drag & drop supported")
+    subtitle.setAlignment(Qt.AlignmentFlag.AlignCenter)
+    subtitle.setStyleSheet("color: #6c757d; font-size: 9pt; font-style: italic; margin-bottom: 8px;")
+    self.main_tab_layout.addWidget(subtitle)
+    
     # Select images button - Smaller with tighter layout
     select_button_layout = QHBoxLayout()
     select_button_layout.setContentsMargins(0, 2, 0, 2)  # Minimal margins
@@ -31,6 +37,7 @@ def setup_main_tab(self):
     self.btn_select.clicked.connect(self.select_images)
     self.btn_select.setFixedSize(130, 25)  # Smaller button
     self.btn_select.setStyleSheet("padding: 2px;")
+    self.btn_select.setToolTip("Click to browse and select image files (JPG, PNG, BMP, TIFF)")
     select_button_layout.addWidget(self.btn_select)
     select_button_layout.addStretch()
     self.main_tab_layout.addLayout(select_button_layout)
@@ -74,6 +81,7 @@ def setup_main_tab(self):
     self.btn_prev.clicked.connect(self.prev_image)
     self.btn_prev.setFixedHeight(22)  # Smaller height
     self.btn_prev.setStyleSheet("padding: 1px 4px;")  # Smaller padding
+    self.btn_prev.setToolTip("View previous image in the list")
     nav_layout.addWidget(self.btn_prev)
     
     self.btn_next = QPushButton("Next")
@@ -81,12 +89,14 @@ def setup_main_tab(self):
     self.btn_next.clicked.connect(self.next_image)
     self.btn_next.setFixedHeight(22)  # Smaller height
     self.btn_next.setStyleSheet("padding: 1px 4px;")  # Smaller padding
+    self.btn_next.setToolTip("View next image in the list")
     nav_layout.addWidget(self.btn_next)
     
     self.btn_rotate = QPushButton("Rotate")  # Shorter text
     self.btn_rotate.clicked.connect(self.rotate_image)
     self.btn_rotate.setFixedHeight(22)  # Smaller height
     self.btn_rotate.setStyleSheet("padding: 1px 4px;")  # Smaller padding
+    self.btn_rotate.setToolTip("Rotate the current image 90° clockwise")
     nav_layout.addWidget(self.btn_rotate)
     
     nav_layout.addStretch()
@@ -140,6 +150,7 @@ def setup_main_tab(self):
     self.btn_delete.clicked.connect(self.delete_image)
     self.btn_delete.setFixedHeight(22)  # Smaller height
     self.btn_delete.setStyleSheet("padding: 1px 4px;")  # Smaller padding
+    self.btn_delete.setToolTip("Remove selected image from the list")
     img_controls.addWidget(self.btn_delete)
     
     # Reorder buttons layout - More compact and horizontal
@@ -156,6 +167,7 @@ def setup_main_tab(self):
     self.btn_up.clicked.connect(self.move_up)
     self.btn_up.setFixedSize(22, 22)  # Square button
     self.btn_up.setStyleSheet("padding: 0px;")  # No padding
+    self.btn_up.setToolTip("Move selected image up in the list")
     reorder_layout.addWidget(self.btn_up)
     
     self.btn_down = QPushButton("↓")  # Use arrow symbol to save space
@@ -163,6 +175,7 @@ def setup_main_tab(self):
     self.btn_down.clicked.connect(self.move_down)
     self.btn_down.setFixedSize(22, 22)  # Square button
     self.btn_down.setStyleSheet("padding: 0px;")  # No padding
+    self.btn_down.setToolTip("Move selected image down in the list")
     reorder_layout.addWidget(self.btn_down)
     
     reorder_layout.addStretch()
@@ -173,6 +186,7 @@ def setup_main_tab(self):
     self.btn_reset.setStyleSheet("background-color: #ff9800; color: white; padding: 1px 4px;")
     self.btn_reset.clicked.connect(self.reset_inputs)
     self.btn_reset.setFixedHeight(22)  # Smaller height
+    self.btn_reset.setToolTip("Clear all images and reset the application")
     img_controls.addWidget(self.btn_reset)
     
     right_panel.addLayout(img_controls)

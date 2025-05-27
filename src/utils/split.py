@@ -207,6 +207,14 @@ def select_pdf_to_split(self):
             logging.error(f"Failed to count pages: {str(e)}")
             self.split_pdf_info.setText(f"PDF Information: {os.path.basename(pdf_file)}\nPages: Unknown\nSize: {size_str}")
             QMessageBox.warning(self, "Warning", f"Could not determine page count: {str(e)}\n\nYou can still extract pages, but you'll need to know the total number of pages in the document.")
+        
+        # Load the PDF in the split tab preview if available
+        if hasattr(self, 'load_pdf_in_split_preview'):
+            try:
+                self.load_pdf_in_split_preview(pdf_file)
+            except Exception as preview_error:
+                logging.warning(f"Could not load PDF preview: {str(preview_error)}")
+                # Preview loading failure shouldn't prevent the main functionality
 
 def count_pages(self, pdf_file):
     """Count the number of pages in a PDF file using multiple methods with fallbacks"""

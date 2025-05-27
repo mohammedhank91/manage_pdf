@@ -75,6 +75,7 @@ def setup_merge_tab(self):
     self.btn_add_pdf.clicked.connect(self.add_pdf)
     self.btn_add_pdf.setStyleSheet("color: white; background-color: #2196f3; font-weight: bold;")
     self.btn_add_pdf.setFixedHeight(28)  # Smaller height
+    self.btn_add_pdf.setToolTip("Browse and select PDF files to add to the merge list")
     buttons_layout.addWidget(self.btn_add_pdf)
     
     # Remove PDF button
@@ -83,6 +84,7 @@ def setup_merge_tab(self):
     self.btn_remove_pdf.clicked.connect(self.remove_pdf)
     self.btn_remove_pdf.setStyleSheet("color: white; background-color: #f44336; font-weight: bold;")
     self.btn_remove_pdf.setFixedHeight(28)  # Smaller height
+    self.btn_remove_pdf.setToolTip("Remove the selected PDF file from the merge list")
     buttons_layout.addWidget(self.btn_remove_pdf)
     
     list_layout.addLayout(buttons_layout)
@@ -107,6 +109,7 @@ def setup_merge_tab(self):
     self.btn_move_pdf_up.clicked.connect(self.move_pdf_up)
     self.btn_move_pdf_up.setFixedHeight(30)  # Smaller height
     self.btn_move_pdf_up.setStyleSheet("background-color: #607d8b; color: white;")
+    self.btn_move_pdf_up.setToolTip("Move the selected PDF file up in the merge order")
     reorder_buttons.addWidget(self.btn_move_pdf_up)
     
     # Move down button
@@ -115,6 +118,7 @@ def setup_merge_tab(self):
     self.btn_move_pdf_down.clicked.connect(self.move_pdf_down)
     self.btn_move_pdf_down.setFixedHeight(30)  # Smaller height
     self.btn_move_pdf_down.setStyleSheet("background-color: #607d8b; color: white;")
+    self.btn_move_pdf_down.setToolTip("Move the selected PDF file down in the merge order")
     reorder_buttons.addWidget(self.btn_move_pdf_down)
     
     reorder_layout.addLayout(reorder_buttons)
@@ -152,10 +156,12 @@ def setup_merge_tab(self):
     self.chk_add_bookmarks = QCheckBox("Add bookmarks for each file")
     self.chk_add_bookmarks.setChecked(True)
     self.chk_add_bookmarks.setStyleSheet("margin-top: 3px;")
+    self.chk_add_bookmarks.setToolTip("Add navigation bookmarks to easily jump between merged PDF sections")
     options_inner_layout.addWidget(self.chk_add_bookmarks)
     
     self.chk_add_page_numbers = QCheckBox("Add page numbers")
     self.chk_add_page_numbers.setStyleSheet("margin-top: 3px;")
+    self.chk_add_page_numbers.setToolTip("Add page numbers to the merged PDF document")
     options_inner_layout.addWidget(self.chk_add_page_numbers)
     
     options_layout.addWidget(options_group)
@@ -202,6 +208,7 @@ def setup_merge_tab(self):
         }
     """)
     self.btn_merge_pdfs.setEnabled(False)
+    self.btn_merge_pdfs.setToolTip("Combine all PDF files in the list into a single merged document")
     options_layout.addWidget(self.btn_merge_pdfs)
     
     # Help text with better styling

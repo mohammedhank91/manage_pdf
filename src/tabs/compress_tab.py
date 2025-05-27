@@ -2,7 +2,8 @@ from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QLabel, QPushButton, QCheckBox, 
     QSpinBox, QComboBox, QFileDialog, QMessageBox, QProgressBar, 
     QListWidget, QFrame, QVBoxLayout, QHBoxLayout, QWidget, 
-    QTabWidget, QScrollArea, QListWidgetItem, QGridLayout, QGroupBox, QLineEdit, QRadioButton, QInputDialog
+    QTabWidget, QScrollArea, QListWidgetItem, QGridLayout, QGroupBox, QLineEdit, QRadioButton, QInputDialog,
+    QSizePolicy
 )
 from PyQt6.QtCore import Qt
 
@@ -25,11 +26,17 @@ def setup_tools_tab(self):
     steps_layout = QHBoxLayout()
     steps_layout.setSpacing(15)  # Increased spacing between steps
     
+    # Set stretch factors for equal distribution
+    steps_widget = QWidget()
+    steps_widget.setLayout(steps_layout)
+    steps_widget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+    
     # Step 1: Select PDF
     select_pdf_panel = QFrame()
     select_pdf_panel.setFrameStyle(QFrame.Shape.Box | QFrame.Shadow.Plain)
     select_pdf_panel.setStyleSheet("background-color: white; border-radius: 10px; border: 1px solid #e0e0e0; padding: 15px;")
-    select_pdf_panel.setMinimumHeight(260)  # Consistent panel height
+    select_pdf_panel.setMinimumHeight(260)  # Minimum height
+    select_pdf_panel.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)  # Allow expansion
     select_pdf_layout = QVBoxLayout(select_pdf_panel)
     select_pdf_layout.setSpacing(15)  # Increased spacing
     
@@ -49,6 +56,7 @@ def setup_tools_tab(self):
     self.btn_select_pdf.clicked.connect(self.select_pdf)
     self.btn_select_pdf.setFixedHeight(50)
     self.btn_select_pdf.setStyleSheet("color: white; background-color: #2196f3; font-weight: bold;")
+    self.btn_select_pdf.setToolTip("Browse and select a PDF file from your computer to compress")
     select_pdf_layout.addWidget(self.btn_select_pdf)
     
     # Add step 1 panel to horizontal layout
@@ -58,7 +66,8 @@ def setup_tools_tab(self):
     compression_panel = QFrame()
     compression_panel.setFrameStyle(QFrame.Shape.Box | QFrame.Shadow.Plain)
     compression_panel.setStyleSheet("background-color: white; border-radius: 10px; border: 1px solid #e0e0e0; padding: 15px;")
-    compression_panel.setMinimumHeight(260)  # Consistent panel height
+    compression_panel.setMinimumHeight(260)  # Minimum height
+    compression_panel.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)  # Allow expansion
     compression_layout = QVBoxLayout(compression_panel)
     compression_layout.setSpacing(15)  # Increased spacing
     
@@ -107,6 +116,7 @@ def setup_tools_tab(self):
         }
     """)
     self.compression_profile.setCurrentIndex(1)  # Default to balanced
+    self.compression_profile.setToolTip("Choose compression level: Higher quality preserves details but larger file size")
     compress_options_layout.addWidget(self.compression_profile)
 
     compression_layout.addLayout(compress_options_layout)
@@ -118,6 +128,7 @@ def setup_tools_tab(self):
     self.btn_compress.setFixedHeight(50)
     self.btn_compress.setStyleSheet("color: white; background-color: #9c27b0; font-weight: bold;")
     self.btn_compress.setEnabled(False)  # Disabled until PDF is created or selected
+    self.btn_compress.setToolTip("Compress the selected PDF file using the chosen quality settings")
     compression_layout.addWidget(self.btn_compress)
     
     # Add step 2 panel to horizontal layout
@@ -127,7 +138,8 @@ def setup_tools_tab(self):
     actions_panel = QFrame()
     actions_panel.setFrameStyle(QFrame.Shape.Box | QFrame.Shadow.Plain)
     actions_panel.setStyleSheet("background-color: white; border-radius: 10px; border: 1px solid #e0e0e0; padding: 15px;")
-    actions_panel.setMinimumHeight(260)  # Consistent panel height
+    actions_panel.setMinimumHeight(260)  # Minimum height
+    actions_panel.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)  # Allow expansion
     actions_layout = QVBoxLayout(actions_panel)
     actions_layout.setSpacing(15)  # Increased spacing
     
@@ -153,6 +165,7 @@ def setup_tools_tab(self):
     self.btn_preview_pdf.setFixedHeight(50)
     self.btn_preview_pdf.setStyleSheet("color: white; background-color: #03a9f4; font-weight: bold;")
     self.btn_preview_pdf.setEnabled(False)
+    self.btn_preview_pdf.setToolTip("Preview the compressed PDF file before saving or printing")
     pdf_actions.addWidget(self.btn_preview_pdf)
     
     # Print PDF button
@@ -162,6 +175,7 @@ def setup_tools_tab(self):
     self.btn_print_pdf.setFixedHeight(50)
     self.btn_print_pdf.setStyleSheet("color: white; background-color: #03a9f4; font-weight: bold;")
     self.btn_print_pdf.setEnabled(False)
+    self.btn_print_pdf.setToolTip("Send the compressed PDF file directly to your printer")
     pdf_actions.addWidget(self.btn_print_pdf)
     
     actions_layout.addLayout(pdf_actions)
